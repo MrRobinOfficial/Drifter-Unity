@@ -1,0 +1,7 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="UnityEngine.UIElements" noNamespaceSchemaLocation="../UIElementsSchema/UIElements.xsd" schemaLocation="UnityEngine.UIElements ../UIElementsSchema/UnityEngine.UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/Drifter/Resources/UI/Telemetry.uss?fileID=7433441132597879392&amp;guid=699962122642e2e419f851ce1cda1297&amp;type=3#Telemetry" />
+    <ui:VisualElement name="root" class="root" style="padding-left: 4px; padding-right: 4px; padding-top: 4px; padding-bottom: 4px; background-color: rgba(0, 0, 0, 0.8); width: 40%; height: 30%;">
+        <ui:Label tabindex="-1" text="Telemetry" display-tooltip-when-elided="true" name="title" class="label title" style="-unity-text-align: upper-center;" />
+        <ui:VisualElement name="container" class="mainContainer" />
+    </ui:VisualElement>
+</ui:UXML>

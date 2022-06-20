@@ -1,0 +1,16 @@
+{
+    "name": "Drifter.Samples.GTASystem.Editor",
+    "rootNamespace": "",
+    "references": [
+        "GUID:ff203c1b2d53b9744afd63d6801603fe"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

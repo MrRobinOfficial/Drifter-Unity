@@ -1,0 +1,14 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="UnityEngine.UIElements" noNamespaceSchemaLocation="../UIElementsSchema/UIElements.xsd" schemaLocation="UnityEngine.UIElements ../UIElementsSchema/UnityEngine.UIElements.xsd" editor-extension-mode="True">
+    <ui:Template name="massField" src="project://database/Assets/Drifter/Editor/Templates/massField.uxml?fileID=9197481963319205126&amp;guid=0a624b9bd1a625047867f6009f8fcc19&amp;type=3#massField" />
+    <ui:Template name="meterField" src="project://database/Assets/Drifter/Editor/Templates/meterField.uxml?fileID=9197481963319205126&amp;guid=09998e17e2ea90d46bb46c18afc31a00&amp;type=3#meterField" />
+    <Style src="project://database/Assets/Drifter/Editor/Resources/WheelBehaviour.uss?fileID=7433441132597879392&amp;guid=a49636dc3dcafe5458e2004a9ec368a3&amp;type=3#WheelBehaviour" />
+    <ui:VisualElement name="root" style="flex-grow: 1; padding-left: 4px; padding-right: 4px; padding-top: 4px; padding-bottom: 4px;">
+        <ui:Instance template="massField" name="massField" />
+        <ui:Instance template="meterField" name="widthField">
+            <AttributeOverrides element-name="meterField" label="Width" value="0.15" />
+        </ui:Instance>
+        <ui:Instance template="meterField" name="radiusField">
+            <AttributeOverrides element-name="meterField" label="Radius" value="0.35" />
+        </ui:Instance>
+    </ui:VisualElement>
+</ui:UXML>

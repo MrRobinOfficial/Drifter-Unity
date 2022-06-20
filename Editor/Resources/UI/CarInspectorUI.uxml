@@ -1,0 +1,9 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:VisualElement name="root" style="flex-grow: 1;">
+        <ui:VisualElement name="info" style="background-color: rgb(75, 72, 253); align-items: center; padding-left: 4px; padding-right: 4px; padding-top: 4px; padding-bottom: 4px; border-bottom-color: rgb(204, 204, 204); border-bottom-width: 4px;">
+            <ui:Label tabindex="-1" text="Mazda RX7" display-tooltip-when-elided="true" name="Name" style="font-size: 16px; -unity-font-style: bold; -unity-font: url(&apos;project://database/Assets/Drifter/Art/Fonts/Exo/Exo-Bold.ttf?fileID=12800000&amp;guid=ed297bec385a03f4f9f424a63613c448&amp;type=3#Exo-Bold&apos;); -unity-text-align: middle-center;" />
+        </ui:VisualElement>
+        <ui:VisualElement name="icon" style="background-image: url(&apos;project://database/Assets/Drifter/Art/Textures/Car%20Icon.psd?fileID=2800000&amp;guid=30321337506d4de4b8b550290f2958a0&amp;type=3#Car Icon&apos;); width: 100%; height: 30%; -unity-background-scale-mode: scale-and-crop;" />
+        <ui:VisualElement name="container" style="flex-grow: 1; border-top-color: rgb(204, 204, 204); padding-left: 4px; padding-right: 4px; padding-top: 4px; padding-bottom: 4px; border-top-width: 4px;" />
+    </ui:VisualElement>
+</ui:UXML>

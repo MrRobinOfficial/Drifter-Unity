@@ -1,0 +1,33 @@
+{
+  "meta_user": "mrrob",
+  "meta_cpu_count": 12,
+  "traceEvents": [
+    {
+      "cat": "function",
+      "dur": 90118.3,
+      "name": "Function1",
+      "ph": "X",
+      "pid": 0,
+      "tid": 1,
+      "ts": 63791189936790864.0
+    },
+    {
+      "cat": "function",
+      "dur": 91897.3,
+      "name": "Function2",
+      "ph": "X",
+      "pid": 0,
+      "tid": 1,
+      "ts": 63791189936882976.0
+    },
+    {
+      "cat": "function",
+      "dur": 186041.40000000002,
+      "name": "RunBenchmarks",
+      "ph": "X",
+      "pid": 0,
+      "tid": 1,
+      "ts": 63791189936789864.0
+    }
+  ]
+}

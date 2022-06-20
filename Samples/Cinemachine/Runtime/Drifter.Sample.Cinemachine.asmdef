@@ -1,0 +1,25 @@
+{
+    "name": "Drifter.Sample.Cinemachine",
+    "rootNamespace": "",
+    "references": [
+        "GUID:4307f53044263cf4b835bd812fc161a4",
+        "GUID:75469ad4d38634e559750d17036d5f7c",
+        "GUID:776d03a35f1b52c4a9aed9f56d7b4229",
+        "GUID:f275a6a6cb300c646accc0d14f24f417"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.cinemachine",
+            "expression": "[2.8.4]",
+            "define": "ENABLE_CINEMACHINE"
+        }
+    ],
+    "noEngineReferences": false
+}

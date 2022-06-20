@@ -1,0 +1,55 @@
+.root {
+    flex-grow: 1;
+}
+
+.title {
+    font-size: 16px;
+    -unity-font-style: bold;
+}
+
+.label {
+    color: rgb(255, 255, 255);
+    font-size: 10px;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.mainContainer {
+    flex-grow: 1;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.rowContainer {
+    flex-grow: 1;
+    flex-direction: row;
+    margin-left: 4px;
+    margin-right: 4px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.columnContainer {
+    flex-grow: 1;
+    flex-direction: column;
+    margin-left: 4px;
+    margin-right: 4px;
+    margin-top: 4px;
+    margin-bottom: 4px;
+    padding-left: 4px;
+    padding-right: 4px;
+    padding-top: 4px;
+    padding-bottom: 4px;
+}
+
+.dashboardContainer {
+    label: 14px;
+}

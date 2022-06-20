@@ -1,0 +1,31 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="UnityEngine.UIElements" noNamespaceSchemaLocation="../UIElementsSchema/UIElements.xsd" schemaLocation="UnityEngine.UIElements ../UIElementsSchema/UnityEngine.UIElements.xsd" editor-extension-mode="False">
+    <Style src="project://database/Assets/Drifter/Editor/Resources/Installer.uss?fileID=7433441132597879392&amp;guid=0028c36d901cf18479b304d0db5a226c&amp;type=3#Installer" />
+    <ui:VisualElement name="root" style="flex-grow: 1; padding-left: 4px; padding-right: 4px; padding-top: 4px; padding-bottom: 4px;">
+        <ui:Label tabindex="-1" text="Drifter Installer" display-tooltip-when-elided="true" name="title" class="label title" />
+        <ui:VisualElement name="spaceElement" class="spaceElement" />
+        <ui:VisualElement name="packageContainer" class="packageContainer">
+            <ui:VisualElement name="container" style="align-items: center;">
+                <ui:VisualElement name="packageTemplate" value="com.unity.cinemachine, 1.0.0" class="package" style="flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; display: flex;">
+                    <ui:Label tabindex="-1" text="Cinemachine" display-tooltip-when-elided="true" name="displayName" class="label" />
+                    <ui:Label tabindex="-1" text="com.unity.cinemachine" display-tooltip-when-elided="true" name="name" class="label" />
+                    <ui:Label tabindex="-1" text="1.0.0" display-tooltip-when-elided="true" name="version" class="label" />
+                    <ui:Button text="Not Installed" name="installBtn" class="label notInstallButton" />
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="spaceElement" class="spaceElement" />
+        <ui:VisualElement name="sampleContainer" style="align-items: center;">
+            <ui:VisualElement name="container" style="flex-grow: 1;">
+                <ui:Button tabindex="-1" text="Import All Samples" display-tooltip-when-elided="true" class="sampleButton" />
+                <ui:Button tabindex="-1" text="Import Demo [Sample]" display-tooltip-when-elided="true" class="sampleButton" />
+                <ui:Button tabindex="-1" text="Import Race System [Sample]" display-tooltip-when-elided="true" class="sampleButton" />
+                <ui:Button tabindex="-1" text="Import GTA System [Sample]" display-tooltip-when-elided="true" class="sampleButton" />
+                <ui:Button tabindex="-1" text="&lt;s&gt;Import Traffic System [Sample]&lt;/s&gt;" display-tooltip-when-elided="true" class="sampleButton" />
+            </ui:VisualElement>
+        </ui:VisualElement>
+        <ui:VisualElement name="spaceElement" class="spaceElement" />
+        <ui:VisualElement name="footer" style="flex-grow: 1; flex-direction: column-reverse; padding-left: 8px; padding-right: 8px; padding-top: 8px; padding-bottom: 8px;">
+            <ui:Label tabindex="-1" text="Thank you for installing Drifter. This asset was made by MrRobin [Robin Johannesson]" display-tooltip-when-elided="true" class="label" style="-unity-text-align: middle-center; white-space: normal;" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

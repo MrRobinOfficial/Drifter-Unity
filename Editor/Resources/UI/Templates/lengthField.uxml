@@ -1,0 +1,5 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" editor-extension-mode="False">
+    <ui:FloatField label="Length" value="100" name="lengthField" is-delayed="false">
+        <ui:Label tabindex="-1" text="[m]" display-tooltip-when-elided="true" name="lengthUnit" style="padding-left: 4px; color: rgb(158, 158, 158);" />
+    </ui:FloatField>
+</ui:UXML>
