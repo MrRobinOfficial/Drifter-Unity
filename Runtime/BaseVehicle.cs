@@ -1,376 +1,235 @@
-#define ENABLE_SAVING
-
 using Drifter.Extensions;
 using Drifter.Utility;
 using UnityEngine;
-
-using static Drifter.Extensions.DrifterExtensions;
-using static Drifter.Extensions.VehicleExtensions;
-using static Drifter.Utility.DrifterMathUtility;
+using UnityEngine.Events;
 
 namespace Drifter
 {
     [RequireComponent(typeof(Rigidbody))]
-    public abstract class BaseVehicle : MonoBehaviour
+    public abstract class BaseVehicle : MonoBehaviour, ISerializationCallbackReceiver
     {
-#if UNITY_EDITOR
-        [ContextMenu("Vehicle/Toggle Rigidbody")]
-        private void ToggleRigidbody() => rigidbody.hideFlags = rigidbody.hideFlags switch
-        {
-            HideFlags.None => HideFlags.NotEditable,
-            HideFlags.NotEditable => default,
-            _ => HideFlags.NotEditable,
-        };
+        //public static event UnityAction<Collision> OnCollided;
 
-        [ContextMenu("Vehicle/Generate License Plate", isValidateFunction: false, priority: 1000100)]
-        private void GenerateLicensePlate() => m_LicensePlate = VehicleExtensions.GenerateLicensePlate();
+        protected const string k_FileName = "Vehicle.ini";
 
-        [ContextMenu("Vehicle/Import Data", isValidateFunction: false, priority: 100050)]
-        private void ImportData() => DrifterExtensions.TryImportData(this);
+        [SerializeField, HideInInspector] string m_ID = string.Empty;
+        [SerializeField, HideInInspector] string m_DirectoryPath = string.Empty;
 
-        [ContextMenu("Vehicle/Export Data", isValidateFunction: false, priority: 100050)]
-        private void ExportData() => DrifterExtensions.TryExportData(this);
+        [field: SerializeField] public string DisplayName { get; protected set; } = string.Empty;
+        [field: SerializeField] public float Mass { get; protected set; } = 1200f;
+        [field: SerializeField] public Vector3 Inertia { get; protected set; } = Vector3.one;
+        [field: SerializeField] public float DragCoefficient { get; protected set; } = 0.35f;
+        [field: SerializeField] public float LiftCoefficient { get; protected set; } = -1f;
 
-        [ContextMenu("Vehicle/Enable Saving", isValidateFunction: true, priority: 100150)]
-        private bool ToggleSaving() => !_autoSave;
+        public Vector3 GForce { get; private set; } = Vector3.zero;
 
-        [ContextMenu("Vehicle/Disable Saving", isValidateFunction: true, priority: 100150)]
-        private bool DisableSaving() => _autoSave;
-
-        [ContextMenu("Vehicle/Enable Saving", isValidateFunction: false, priority: 100150)]
-        private void EnableSavingFunc() => _autoSave = true;
-
-        [ContextMenu("Vehicle/Disable Saving", isValidateFunction: false, priority: 100150)]
-        private void DisableSavingFunc() => _autoSave = false;
-
-        [HideInInspector] private bool _autoSave = false;
-#endif
-
-        [SerializeField, HideInInspector] private string m_SubPath = DrifterExtensions.DEFAULT_FILE_PATH;
-
-        [SerializeField, HideInInspector] private string m_LicensePlate = string.Empty;
-
-        /// <summary>
-        /// Helpful for SDK
-        /// </summary>
-        public string LicensePlate => m_LicensePlate;
-
-        /// <summary>
-        /// Path for loading/saving<br></br>
-        /// <b>NOTE:</b> Directory is always <see cref="Application.streamingAssetsPath"/> 
-        /// </summary>
-        public string SubPath => m_SubPath;
-
-        public new string name = "Mazda Rx7";
-
-        /// <summary>
-        /// In [kg]
-        /// </summary>
-        [field: Header("Vehicle Settings")]
-        [field: SerializeField] public float Mass { get; set; } = 1500f;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        [field: SerializeField] public Optional<Vector3> CenterOfMass { get; set; } = default;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        [field: SerializeField] public Optional<Vector3> Inertia { get; set; } = default;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        [field: SerializeField] public float DragCoefficient { get; set; } = 0.3f;
-
-        /// <summary>
-        /// Negative value = down force
-        /// </summary>
-        [field: SerializeField] public float LiftCoefficient { get; set; } = -1f;
-
-        /// <summary>
-        /// In [m^2]
-        /// </summary>
-        [field: SerializeField] public float FrontalArea { get; set; } = 1.94f;
-
-        public bool IsDriveable { get; set; } = true;
-
-        /// <summary>
-        /// Chassis weight<br></br>
-        /// In [kg]
-        /// </summary>
-        public float CurbWeight => Mass;
-
-        /// <summary>
-        /// Chassis weight + fuel tank weight + driver weight<br></br>
-        /// In [kg]
-        /// </summary>
-        public float GrossWeight { get; protected set; }
-
-        /// <summary>
-        /// In [km]
-        /// </summary>
-        public float Distance { get; private set; }
-
-        /// <summary>
-        /// Helpful for LOD system
-        /// </summary>
-        public bool IsVisible { get; protected set; } = false;
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public Vector3 GForce { get; private set; } = default;
-
-        public Vector2 GetGForceNormalized()
-        {
-            var combinedSlip = new Vector2(GForce.x, GForce.z);
-            return combinedSlip.magnitude > 1f ? combinedSlip.normalized : combinedSlip;
-        }
-
-        /// <summary>
-        /// 
-        /// </summary>
-        public Vector3 Acceleration { get; private set; } = Vector3.zero;
-
-        /// <summary>
-        /// In [km/h]
-        /// </summary>
-        public InterpolatedFloat Speedometer { get; protected set; } = new();
-
-        /// <summary>
-        /// In [km]
-        /// </summary>
-        public InterpolatedFloat Odometer { get; protected set; } = new();
-
-        /// <summary>
-        /// In [RPM]
-        /// </summary>
-        public InterpolatedFloat Tachometer { get; protected set; } = new();
-
-        /// <summary>
-        /// In [m/s]
-        /// </summary>
-        public float RightVelocity { get; private set; }
-
-        /// <summary>
-        /// In [m/s]
-        /// </summary>
-        public float ForwardVelocity { get; private set; }
-
-        /// <summary>
-        /// Combined right and forward velocity<br></br>
-        /// In [m/s]
-        /// </summary>
-        public float LinearVelocity { get; private set; }
-        public float GetSpeedInKph() => Mathf.Round(Mathf.Abs(ForwardVelocity) * 3.6f);
-
-        public Rigidbody Body
+        public string ID => m_ID;
+        public string DirectoryPath => m_DirectoryPath;
+        public Rigidbody Rigidbody
         {
             get
             {
                 if (rigidbody == null)
+                {
                     rigidbody = GetComponent<Rigidbody>();
+                    rigidbody.hideFlags = HideFlags.NotEditable;
+                    rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
+                    rigidbody.collisionDetectionMode = CollisionDetectionMode.Continuous;
+                    rigidbody.drag = rigidbody.angularDrag = 0f;
+                    rigidbody.solverIterations = Physics.defaultSolverIterations;
+                    rigidbody.solverVelocityIterations = Physics.defaultSolverVelocityIterations;
+                    rigidbody.useGravity = true;
+                    rigidbody.isKinematic = false;
+                }
 
                 return rigidbody;
             }
         }
 
-        protected new Transform transform;
-        protected new Rigidbody rigidbody;
-        private Vector3 oldPosition;
+        //public bool IsColliding { get; private set; } = false;
 
-        private Vector3 spawnPosition;
-        private Vector3 spawnRotation;
+        //private void OnCollisionEnter(Collision collision) { }
 
-        public void SetSpawnLocation(Vector3 position, Quaternion rotation)
+        //private void OnCollisionStay(Collision collision) => IsColliding = true;
+
+        //private void OnCollisionExit(Collision collision) => IsColliding = false;
+
+        public Vector3 GetLocalVelocity() => transform.InverseTransformDirection(Rigidbody.velocity);
+
+        public float GetSpeedInKph() => MathUtility.ConvertMsToKph(GetLocalVelocity().z);
+
+        public float HeadingAngle { get; private set; } = 0f;
+
+        public float GetHeadingAngleNormalized() => HeadingAngle / 90f;
+
+        private new Rigidbody rigidbody;
+        private new Transform transform;
+
+        //public DataBus DataBus = new(); // Temporary
+
+        protected virtual void Awake()
         {
-            spawnPosition = position;
-            spawnRotation = rotation.eulerAngles;
-        }
-
-        [ContextMenu("Vehicle/Respawn")]
-        public void Respawn()
-        {
-            rigidbody.velocity = Vector3.zero;
-            rigidbody.angularVelocity = Vector3.zero;
-            rigidbody.Sleep();
-
-            var location = spawnPosition + Vector3.up;
-            rigidbody.Move(location, Quaternion.Euler(spawnRotation));
-        }
-
-        protected virtual void OnValidate()
-        {
-            //if (rigidbody == null)
-            //{
-            //    if (!TryGetComponent(out rigidbody))
-            //        rigidbody = gameObject.AddComponent<Rigidbody>();
-            //}
-
-            //rigidbody.mass = Mass;
-            //rigidbody.drag = 0f;
-            //rigidbody.angularDrag = 0f;
-            //rigidbody.useGravity = true;
-            //rigidbody.isKinematic = false;
-            //rigidbody.freezeRotation = false;
-            //rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
-            //rigidbody.hideFlags = HideFlags.NotEditable;
-        }
-
-        protected virtual void OnDrawGizmos() { }
-
-        protected virtual void OnDrawGizmosSelected() { }
-
-        private void Awake()
-        {
-#if UNITY_EDITOR
-            if (_autoSave)
-                DrifterExtensions.TryImportData(this);
-#else
-            DrifterExtensions.TryImportData(this);
-#endif
-
             transform = base.transform;
+
             rigidbody = GetComponent<Rigidbody>();
+            rigidbody.hideFlags = HideFlags.NotEditable;
+            rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
+            rigidbody.collisionDetectionMode = CollisionDetectionMode.Continuous;
+            rigidbody.drag = rigidbody.angularDrag = 0f;
+            rigidbody.solverIterations = Physics.defaultSolverIterations;
+            rigidbody.solverVelocityIterations = Physics.defaultSolverVelocityIterations;
+            rigidbody.useGravity = true;
+            rigidbody.isKinematic = false;
         }
 
-        private void OnDestroy()
+        protected virtual void OnEnable()
         {
-#if UNITY_EDITOR
-            if (_autoSave)
-                DrifterExtensions.TryExportData(this);
-#else
-            DrifterExtensions.TryExportData(this);
-#endif
+            this.RegisterVehicle();
+            FetchData();
         }
 
-        private void OnEnable()
+        protected virtual void OnDisable()
         {
-            rigidbody.mass = Mass;
-
-            if (CenterOfMass.Enabled)
-                rigidbody.centerOfMass = CenterOfMass.Value;
-            else
-                rigidbody.ResetCenterOfMass();
-
-            if (Inertia.Enabled)
-                rigidbody.inertiaTensor = Inertia.Value;
-            else
-                rigidbody.ResetInertiaTensor();
-
-            OnInit();
+            this.UnregisterVehicle();
+            PushData();
         }
 
-        private void OnDisable() => OnShutdown();
-
-        private void Update()
+        protected virtual void FixedUpdate()
         {
-            var deltaTime = Time.deltaTime;
-
-            var localVelocity = transform.InverseTransformDirection(Body.velocity);
-
-            RightVelocity = localVelocity.x;
-            ForwardVelocity = localVelocity.z;
-            LinearVelocity = new Vector2(localVelocity.x, localVelocity.z).magnitude;
-
-            //Speedometer = Mathf.SmoothDamp(Speedometer, Mathf.Abs(speedInKph), ref _currentSpeedInKph, smoothDeltaTime * GAUGE_SPEED);
-
-            OnSimulate(deltaTime);
-        }
-
-        private void FixedUpdate()
-        {
-            Distance = DistanceXZ(transform.position, oldPosition);
-
             var deltaTime = Time.fixedDeltaTime;
 
-            Body.AddForce(transform.TransformDirection(this.CalcAerodynamics()));
+            HeadingAngle = rigidbody.velocity.magnitude > 10f ? 
+                Vector3.SignedAngle(rigidbody.velocity, transform.forward, transform.up) : 0f;
 
-            OnFixedSimulate(deltaTime);
-
-            oldPosition = transform.position;
+            var velo = GetLocalVelocity();
+            GForce = (velo - lastFrameVelocity) / (deltaTime * Physics.gravity.y);
+            lastFrameVelocity = velo;
         }
 
-        #region Callbacks
+        private Vector3 lastFrameVelocity;
 
         /// <summary>
-        /// Collect references and initialize other modules
+        /// Loading vehicle data
         /// </summary>
-        protected abstract void OnInit();
+        public virtual void FetchData()
+        {
+            if (!IsDirectoryValid())
+            {
+#if DEBUG
+                Debug.LogWarning(message: "Fetching data resulting in error! File path does not exist at the moment!", this);
+#endif
+
+                return;
+            }
+
+            if (!this.TryFetchData(k_FileName, out var data))
+                return;
+
+            Load(data);
+        }
 
         /// <summary>
-        /// Update method for <b>VISUAL OBJECTS ONLY</b>
+        /// Saving vehicle data
         /// </summary>
-        /// <param name="deltaTime"></param>
-        protected abstract void OnSimulate(float deltaTime);
+        public virtual void PushData()
+        {
+            if (!IsDirectoryValid())
+            {
+#if DEBUG
+                Debug.LogWarning(message: "Pushing data resulting in error! File path does not exist at the moment!", this);
+#endif
 
-        /// <summary>
-        /// Update method for modules
-        /// </summary>
-        /// <param name="deltaTime"></param>
-        protected abstract void OnFixedSimulate(float deltaTime);
+                return;
+            }
 
-        /// <summary>
-        /// De-subscribe events and shutdown other modules
-        /// </summary>
-        protected abstract void OnShutdown();
-
-        #endregion
+            this.TryPushData(k_FileName, Save());
+        }
 
         #region Data Saving
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="data"></param>
-        public virtual void LoadData(FileData data)
+        [ContextMenu("Reset ID", isValidateFunction: false, priority: 1000050)]
+        protected void ResetID()
         {
-            data.ReadValue("Vehicle", "LicensePlate", out m_LicensePlate);
-            data.ReadValue("Vehicle", "DisplayName", out string displayName);
+#if UNITY_EDITOR
+            if (!UnityEditor.EditorUtility.DisplayDialog(title: "Reseting ID",
+                message: $"Are you sure you want to reset current ID of your vehicle?\n\nThis WILL lose all connection to folder structure of .INI files.\n\nWhich is located at '{DrifterExtensions.GetSubDirectory()}'",
+                ok: "Yes", cancel: "Cancel"))
+                return;
+#endif
 
-            Print($"{displayName} has been loaded!", PrintType.Log);
-
-            data.ReadValue("Vehicle", "Mass", out float mass);
-
-            Mass = mass;
-
-            data.ReadValue("Vehicle", "OverrideCenterOfMass", out bool overrideCenterOfMass);
-            data.ReadValue("Vehicle", "CenterOfMass", out Vector3 centerOfMass);
-
-            data.ReadValue("Vehicle", "OverrideInertia", out bool overrideInertia);
-            data.ReadValue("Vehicle", "Inertia", out Vector3 inertia);
-
-            CenterOfMass.Enabled = overrideCenterOfMass;
-            CenterOfMass.Value = centerOfMass;
-
-            Inertia.Enabled = overrideInertia;
-            Inertia.Value = inertia;
+            m_ID = string.Empty;
         }
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <returns></returns>
-        public virtual FileData SaveData()
+        [ContextMenu("Copy ID", isValidateFunction: false, priority: 1000050)]
+        protected void CopyID()
+        {
+            GUIUtility.systemCopyBuffer = ID;
+
+#if UNITY_EDITOR
+            foreach (UnityEditor.SceneView scene in UnityEditor.SceneView.sceneViews)
+                scene.ShowNotification(new GUIContent(text: "Copy to clipboard"));
+#endif
+        }
+
+        public bool IsDirectoryValid()
+        {
+            if (string.IsNullOrEmpty(m_DirectoryPath))
+                this.IsDirectoryValid(out m_DirectoryPath);
+
+            if (System.IO.Directory.Exists(m_DirectoryPath))
+                return true;
+            else
+            {
+                m_DirectoryPath = string.Empty;
+                return false;
+            }
+        }
+
+        protected virtual FileData Save()
         {
             var data = new FileData();
 
-            data.WriteValue("Vehicle", "LicensePlate", LicensePlate);
-            data.WriteValue("Vehicle", "DisplayName", "Mazda Rx7");
+            data.WriteValue("General", "DisplayName", DisplayName);
+            data.WriteValue("General", "Mass", rigidbody.mass);
 
-            data.WriteValue("Vehicle", "Mass", Mass);
+            (bool Enabled, Vector3 Value) CenterOfMass = default;
 
-            data.WriteValue("Vehicle", "OverrideCenterOfMass", CenterOfMass.Enabled);
-            data.WriteValue("Vehicle", "CenterOfMass", CenterOfMass.Value);
+            data.WriteValue("General", "OverrideCenterOfMass", CenterOfMass.Enabled);
+            data.WriteValue("General", "CenterOfMass", CenterOfMass.Value);
 
-            data.WriteValue("Vehicle", "OverrideInertia", Inertia.Enabled);
-            data.WriteValue("Vehicle", "Inertia", Inertia.Value);
+            (bool Enabled, Vector3 Value) Inertia = default;
+
+            data.WriteValue("General", "OverrideInertia", Inertia.Enabled);
+            data.WriteValue("General", "Inertia", Inertia.Value);
 
             return data;
-        } 
+        }
 
+        protected virtual void Load(FileData data)
+        {
+            data.ReadValue("General", "DisplayName", out string displayName);
+            DisplayName = displayName;
+
+            data.ReadValue("General", "Mass", out float mass);
+
+            data.ReadValue("General", "OverrideCenterOfMass", out bool overrideCOM);
+            data.ReadValue("General", "CenterOfMass", out Vector3 COM);
+
+            data.ReadValue("General", "OverrideInertia", out bool overrideInertia);
+            data.ReadValue("General", "Inertia", out Vector3 inertia);
+        } 
         #endregion
-    } 
+
+        #region Callbacks
+        public void OnBeforeSerialize()
+        {
+            if (!string.IsNullOrEmpty(m_ID))
+                return;
+
+            m_ID = System.Guid.NewGuid().ToString();
+        }
+
+        public void OnAfterDeserialize() { }
+        #endregion
+    }
 }

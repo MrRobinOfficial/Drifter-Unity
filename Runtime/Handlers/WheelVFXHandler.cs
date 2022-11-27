@@ -1,11 +1,12 @@
+#if false
 using Drifter.Components;
 using UnityEngine;
 
 namespace Drifter.Handlers
 {
     [RequireComponent(typeof(WheelBehaviour))]
-	public class WheelVFXHandler : MonoBehaviour
-	{
+    public class WheelVFXHandler : MonoBehaviour
+    {
         private ParticleSystem smokeVFX;
         private TrailRenderer skidVFX;
 
@@ -77,4 +78,5 @@ namespace Drifter.Handlers
             skidVFX.emitting = true;
         }
     }
-}
+} 
+#endif

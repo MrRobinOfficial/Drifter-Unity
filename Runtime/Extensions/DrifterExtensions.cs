@@ -2,6 +2,40 @@
 
 namespace Drifter
 {
+    [System.Serializable]
+    public struct RangeFloat
+    {
+        [SerializeField] float m_MinValue;
+        [SerializeField] float m_MaxValue;
+
+        public RangeFloat(float minLimit, float maxLimit) : this()
+        {
+            MinValue = minLimit;
+            MaxValue = maxLimit;
+            MinLimit = minLimit;
+            MaxLimit = maxLimit;
+        }
+
+        public float GetRandomValue() => Random.Range(MinValue, MaxValue);
+
+        public float MinValue
+        {
+            get => m_MinValue;
+            set => m_MinValue = Mathf.Max(value, MinLimit);
+        }
+
+        public float MaxValue
+        {
+            get => m_MaxValue;
+            set => m_MaxValue = Mathf.Min(value, MaxLimit);
+        }
+
+        [field: SerializeField] public float MinLimit { get; private set; }
+        [field: SerializeField] public float MaxLimit { get; private set; }
+
+        public override string ToString() => $"{MinLimit}, {MaxLimit}";
+    }
+
     public enum DriveType : byte
     {
         AWD,
@@ -70,11 +104,16 @@ namespace Drifter
 
     public enum DifferentialType : byte
     {
-        Open,
+        None,
         Locked,
-        ClutchPack,
+        Open,
         Viscous,
-        TorqueBias,
+        LSD,
+        //Open,
+        //Locked,
+        //ClutchPack,
+        //Viscous,
+        //TorqueBias,
     }
 
     public enum SurfaceType : byte
@@ -114,6 +153,12 @@ namespace Drifter.Extensions
 {
     public static partial class DrifterExtensions
     {
+#nullable enable
+
+        public static T? TryGetValue<T>(this Optional<T> obj) => 
+            obj.Enabled && obj.Value != null ? obj.Value : default;
+#nullable disable
+
         public static readonly string DEFAULT_FILE_PATH = "Vehicles/";
 
         public static (float min, float max) GetFrictionSurface(bool isStatic, SurfaceType type, (float min, float max) customStatic = default, (float min, float max) customKinetic = default) => type switch
@@ -197,28 +242,38 @@ namespace Drifter.Extensions
         //    _ => 0f,
         //};
 
-        public static float ToRads(this float rpm) => rpm * 0.10472f;
-        public static float ToRPM(this float rads) => rads / 0.10472f;
+        public static string GenerateLicensePlate()
+        {
+            var rnd = new System.Random();
 
-        public static float GetScale(this Transform transform) => transform.lossyScale.magnitude / 1.73205078f;
+            var letter1 = (char)rnd.Next('a', 'z');
+            var letter2 = (char)rnd.Next('a', 'z');
+            var letter3 = (char)rnd.Next('a', 'z');
 
-        public static Vector3 GetSimpleDrag(float dragCoefficient, Vector3 velocity) => -dragCoefficient * velocity * Mathf.Abs(velocity.magnitude);
+            var number1 = (int)(Random.value * 10);
+            var number2 = (int)(Random.value * 10);
+            var number3 = (int)(Random.value * 10);
 
-        public static Vector3 GetAdvancedDrag(float dragCoefficient, Vector3 area, Vector3 velocity, float airDensity = 1.29f) => 0.5f * airDensity * dragCoefficient * area * Mathf.Pow(velocity.magnitude, 2);
+            var builder = new System.Text.StringBuilder(capacity: 6);
 
-        public static Vector3 GetRollingResistance(float rollingCoefficient, Vector3 velocity) => -rollingCoefficient * velocity;
+            builder.Append(char.ToUpper(letter1));
+            builder.Append(char.ToUpper(letter2));
+            builder.Append(char.ToUpper(letter3));
+            builder.Append('-');
+            builder.Append(number1);
+            builder.Append(number2);
+            builder.Append(number3);
 
-        public static Vector3 ApplyForce(float mass, Vector3 gravity, float slopeAngle = 0f) => mass * Mathf.Sin(slopeAngle) * gravity;
+            return builder.ToString();
+        }
 
-        public static Vector3 Rotated(this Vector3 vector, Quaternion rotation, Vector3 pivot = default(Vector3)) => rotation * (vector - pivot) + pivot;
+        public static string GetAutoPropertyName(string propName) => 
+            string.Format("<{0}>k__BackingField", propName);
 
-        public static Vector3 Rotated(this Vector3 vector, Vector3 rotation, Vector3 pivot = default(Vector3)) => Rotated(vector, Quaternion.Euler(rotation), pivot);
+        public static float GetScale(this Transform transform) => 
+            transform.lossyScale.magnitude / 1.73205078f;
 
-        public static Vector3 Rotated(this Vector3 vector, float x, float y, float z, Vector3 pivot = default(Vector3)) => Rotated(vector, Quaternion.Euler(x, y, z), pivot);
-
-#nullable enable
-        public static T? TryGetValue<T>(this Optional<T> obj) => obj.IsNotNull ? obj.Value : default;
-
-        public static string AsString(this System.TimeSpan span) => span.ToString(@"hh\:mm\:ss\.ffff");
+        public static string AsString(this System.TimeSpan span) => 
+            span.ToString(@"hh\:mm\:ss\.ffff");
     }
 }

@@ -61,9 +61,11 @@ namespace Drifter.Components
             RightWheel.ApplyForce(force * input * Vector3.down);
         }
 
-        public float GetInputShaftVelocity() => (LeftWheel.AngularVelocity + RightWheel.AngularVelocity) * 0.5f * FinalDriveRatio;
+        public float GetInputShaftVelocity() => 
+            (LeftWheel.AngularVelocity + RightWheel.AngularVelocity) * 0.5f * FinalDriveRatio;
 
-        public float GetLinearVelocity() => (LeftWheel.VelocityAtWheel.z + RightWheel.VelocityAtWheel.z) * 0.5f;
+        public float GetLinearVelocity() => 
+            (LeftWheel.VelocityAtWheel.z + RightWheel.VelocityAtWheel.z) * 0.5f;
 
         public (float leftTorque, float rightTorque) GetOutputTorque(float deltaTime, float inputTorque)
         {
@@ -79,19 +81,9 @@ namespace Drifter.Components
             };
         }
 
-        public override void Init(BaseVehicle vehicle)
-        {
-
-        }
-
-        public override void Simulate(float deltaTime, IVehicleData data = null)
-        {
-
-        }
-
         #region Data Saving
 
-        public override void LoadData(FileData data)
+        public override void Load(FileData data)
         {
             data.ReadValue("Differential", "Type", out DifferentialType type);
 
@@ -107,7 +99,7 @@ namespace Drifter.Components
             FinalDriveRatio = finalDriveRatio;
         }
 
-        public override FileData SaveData()
+        public override FileData Save()
         {
             var data = new FileData();
 
@@ -121,7 +113,8 @@ namespace Drifter.Components
             return data;
         }
 
-        public override void Shutdown() => throw new System.NotImplementedException();
+        public override void OnEnable(BaseVehicle vehicle) { }
+        public override void OnDisable(BaseVehicle vehicle) { }
 
         #endregion
     }

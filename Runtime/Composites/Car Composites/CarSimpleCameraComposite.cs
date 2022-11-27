@@ -1,5 +1,4 @@
-﻿using Drifter.Attributes;
-using Drifter.Data;
+﻿using Drifter.Data;
 using Drifter.Handlers;
 using Drifter.Vehicles;
 using NaughtyAttributes;
@@ -17,7 +16,7 @@ namespace Drifter.Composites.CarComposites
         [SerializeField, Required] Transform m_HoodPivot = default;
 
         [Header("General Settings")]
-        [SerializeField, ExposedData] CameraPreset m_Preset = default;
+        [SerializeField, Expandable] CameraPreset m_Preset = default;
 
         public Transform CamTarget { get; private set; } = null;
 

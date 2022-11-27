@@ -2,7 +2,7 @@ using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 
-using static Drifter.Utility.DrifterMathUtility;
+using static Drifter.Utility.MathUtility;
 
 namespace Drifter.Composites.CarComposites
 {
@@ -69,8 +69,8 @@ namespace Drifter.Composites.CarComposites
             starterAction = carInput.FindAction("Starter");
             toggleHandbrakeAction = carInput.FindAction("Toggle Handbrake");
 
-            respawnAction.performed += RespawnAction_performed;
-            setSpawnkAction.performed += SetSpawnkAction_performed;
+            //respawnAction.performed += RespawnAction_performed;
+            //setSpawnkAction.performed += SetSpawnkAction_performed;
 
             toggleHandbrakeAction.performed += ToggleHandbrake_performed;
             shiftUpAction.performed += ShiftUp_performed;
@@ -79,8 +79,8 @@ namespace Drifter.Composites.CarComposites
 
         private void OnDestroy()
         {
-            respawnAction.performed -= RespawnAction_performed;
-            setSpawnkAction.performed -= SetSpawnkAction_performed;
+            //respawnAction.performed -= RespawnAction_performed;
+            //setSpawnkAction.performed -= SetSpawnkAction_performed;
 
             toggleHandbrakeAction.performed -= ToggleHandbrake_performed;
             shiftUpAction.performed -= ShiftUp_performed;
@@ -106,89 +106,113 @@ namespace Drifter.Composites.CarComposites
         private float smoothSteerInput;
         private float steerInputVelocity;
 
-        private void RespawnAction_performed(InputAction.CallbackContext ctx) => carVehicle.Respawn();
-
-        private void SetSpawnkAction_performed(InputAction.CallbackContext ctx)
-        {
-            if (!carVehicle.IsGrounded)
-                return;
-
-            carVehicle.SetSpawnLocation(transform.position, transform.rotation);
-        }
-
         private void Update()
         {
-            if (Gamepad.current != null)
-                HandleGamepad();
-
-            if (Keyboard.current != null)
-                HandleKeyboard();
-
             var rawSteerInput = steerAction.ReadValue<float>();
-            var steerActionDevice = steerAction.activeControl?.device;
+            //var steerActionDevice = steerAction.activeControl?.device;
 
             var steerInput = steerCurve.Evaluate(Mathf.Abs(rawSteerInput)) * Sign(rawSteerInput);
             smoothSteerInput = Mathf.Lerp(smoothSteerInput, steerInput, steerSpeed * Time.deltaTime);
-            carVehicle.RawSteerInput = smoothSteerInput;
+            carVehicle.SetSteerInput(smoothSteerInput);
 
-            carVehicle.RawThrottleInput = throttleAction.ReadValue<float>();
-            carVehicle.RawBrakeInput = brakeAction.ReadValue<float>();
-            carVehicle.RawClutchInput = clutchAction.ReadValue<float>();
-            carVehicle.RawHandbrakeInput = Mathf.Max(handbrakeAction.ReadValue<float>(), isHandbrakeToggle ? 1f : 0f);
+            carVehicle.SetThrottleInput(throttleAction.ReadValue<float>());
+            carVehicle.SetBrakeInput(brakeAction.ReadValue<float>());
+            carVehicle.SetClutchInput(clutchAction.ReadValue<float>());
+            carVehicle.SetHandbrakeInput(
+                Mathf.Max(handbrakeAction.ReadValue<float>(), isHandbrakeToggle ? 1f : 0f));
 
-            HandleEngineInput();
-
-            void HandleKeyboard()
+            if (Input.GetKeyDown(KeyCode.T))
             {
-                var keyboard = Keyboard.current;
-
-                if (keyboard[m_ToggleTelemetry].wasPressedThisFrame)
-                {
-                    if (TryGetComponent(out CarTelemetryGUIComposite telemetryGUI))
-                        telemetryGUI.enabled = !telemetryGUI.enabled;
-                }
+                if (carVehicle.Engine.IsRunning)
+                    carVehicle.Engine.Shutoff();
+                else
+                    carVehicle.Engine.Startup();
             }
-
-            void HandleGamepad()
-            {
-                var pad = Gamepad.current;
-
-                if (pad[GamepadButton.Start].wasPressedThisFrame)
-                    Debug.Break();
-            }
-
-            void HandleEngineInput()
-            {
-                var engine = carVehicle.Engine;
-
-                if (!isStarting && engine.IsRunning && starterAction.WasPressedThisFrame())
-                {
-                    engine.Stop();
-                    ResetRumble();
-                }
-                else if (starterAction.IsPressed() && !isStarting && !engine.IsRunning)
-                {
-                    starterTime = Time.unscaledTime + engine.StarterDuration;
-                    ApplyRumble(lowFrequency: 0.5f, highFrequency: 0.5f);
-                    isStarting = true;
-                }
-                else if (isStarting && starterAction.WasReleasedThisFrame())
-                {
-                    isStarting = false;
-                    ResetRumble();
-                }
-                else if (isStarting && starterAction.IsPressed())
-                {
-                    if (Time.unscaledTime >= starterTime && !engine.IsRunning)
-                    {
-                        engine.Startup();
-                        isStarting = false;
-                        ResetRumble();
-                    }
-                }
-            }
-
         }
+
+        //private void RespawnAction_performed(InputAction.CallbackContext ctx) => carVehicle.Respawn();
+
+        //private void SetSpawnkAction_performed(InputAction.CallbackContext ctx)
+        //{
+        //    if (!carVehicle.IsGrounded)
+        //        return;
+
+        //    carVehicle.SetSpawnLocation(transform.position, transform.rotation);
+        //}
+
+        //private void Update()
+        //{
+        //    if (Gamepad.current != null)
+        //        HandleGamepad();
+
+        //    if (Keyboard.current != null)
+        //        HandleKeyboard();
+
+        //    var rawSteerInput = steerAction.ReadValue<float>();
+        //    var steerActionDevice = steerAction.activeControl?.device;
+
+        //    var steerInput = steerCurve.Evaluate(Mathf.Abs(rawSteerInput)) * Sign(rawSteerInput);
+        //    smoothSteerInput = Mathf.Lerp(smoothSteerInput, steerInput, steerSpeed * Time.deltaTime);
+        //    carVehicle.RawSteerInput = smoothSteerInput;
+
+        //    carVehicle.RawThrottleInput = throttleAction.ReadValue<float>();
+        //    carVehicle.RawBrakeInput = brakeAction.ReadValue<float>();
+        //    carVehicle.RawClutchInput = clutchAction.ReadValue<float>();
+        //    carVehicle.RawHandbrakeInput = Mathf.Max(handbrakeAction.ReadValue<float>(), isHandbrakeToggle ? 1f : 0f);
+
+        //    HandleEngineInput();
+
+        //    void HandleKeyboard()
+        //    {
+        //        var keyboard = Keyboard.current;
+
+        //        if (keyboard[m_ToggleTelemetry].wasPressedThisFrame)
+        //        {
+        //            if (TryGetComponent(out CarTelemetryGUIComposite telemetryGUI))
+        //                telemetryGUI.enabled = !telemetryGUI.enabled;
+        //        }
+        //    }
+
+        //    void HandleGamepad()
+        //    {
+        //        var pad = Gamepad.current;
+
+        //        if (pad[GamepadButton.Start].wasPressedThisFrame)
+        //            Debug.Break();
+        //    }
+
+        //    void HandleEngineInput()
+        //    {
+        //        var engine = carVehicle.Engine;
+
+        //        if (!isStarting && engine.IsRunning && starterAction.WasPressedThisFrame())
+        //        {
+        //            engine.Stop();
+        //            ResetRumble();
+        //        }
+        //        else if (starterAction.IsPressed() && !isStarting && !engine.IsRunning)
+        //        {
+        //            starterTime = Time.unscaledTime + engine.StarterDuration;
+        //            ApplyRumble(lowFrequency: 0.5f, highFrequency: 0.5f);
+        //            isStarting = true;
+        //        }
+        //        else if (isStarting && starterAction.WasReleasedThisFrame())
+        //        {
+        //            isStarting = false;
+        //            ResetRumble();
+        //        }
+        //        else if (isStarting && starterAction.IsPressed())
+        //        {
+        //            if (Time.unscaledTime >= starterTime && !engine.IsRunning)
+        //            {
+        //                engine.Startup();
+        //                isStarting = false;
+        //                ResetRumble();
+        //            }
+        //        }
+        //    }
+
+        //}
 
         //private void HandleECU()
         //{
@@ -248,7 +272,8 @@ namespace Drifter.Composites.CarComposites
 
         #region Input Callback
 
-        private void ToggleHandbrake_performed(InputAction.CallbackContext ctx) => isHandbrakeToggle = !isHandbrakeToggle;
+        private void ToggleHandbrake_performed(InputAction.CallbackContext ctx) => 
+            isHandbrakeToggle = !isHandbrakeToggle;
 
         private void ShiftUp_performed(InputAction.CallbackContext ctx)
         {

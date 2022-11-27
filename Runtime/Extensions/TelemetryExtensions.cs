@@ -9,9 +9,6 @@ namespace Drifter.Extensions
 {
     public static class TelemetryExtensions
     {
-        public static void ExportData(this CarTelemetryGUIComposite carTelemetry)
-        {
 
-        }
     }
 }

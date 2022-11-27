@@ -5,7 +5,7 @@ using Drifter.Vehicles;
 using UnityEngine;
 
 using static Drifter.Extensions.GUIExtensions;
-using static Drifter.Utility.DrifterMathUtility;
+using static Drifter.Utility.MathUtility;
 
 namespace Drifter.Composites.CarComposites
 {
@@ -27,17 +27,17 @@ namespace Drifter.Composites.CarComposites
 
         private void OnGUI()
         {
-            //var resX = Screen.width / SCREEN_WIDTH;
-            //var resY = Screen.height / SCREEN_HEIGHT;
+            var resX = Screen.width / SCREEN_WIDTH;
+            var resY = Screen.height / SCREEN_HEIGHT;
 
-            //var matrix = GUI.matrix;
+            var matrix = GUI.matrix;
 
-            //GUI.matrix = Matrix4x4.TRS
-            //(
-            //    Vector3.zero,
-            //    Quaternion.identity,
-            //    s: new Vector3(resX, resY, z: 1f)
-            //);
+            GUI.matrix = Matrix4x4.TRS
+            (
+                Vector3.zero,
+                Quaternion.identity,
+                s: new Vector3(resX, resY, z: 1f)
+            );
 
             var window = new GUIStyle(GUI.skin.box)
             {
@@ -52,11 +52,31 @@ namespace Drifter.Composites.CarComposites
 
             windowRect = GUILayout.Window(id: 0, windowRect, DrawWindow, GUIContent.none, window);
 
-            //GUI.matrix = matrix;
+            GUI.matrix = matrix;
         }
+
+        private void FixedUpdate()
+        {
+            steerInput.Set(carVehicle.GetSteerInput());
+            throttleInput.Set(carVehicle.GetThrottleInput());
+            brakeInput.Set(carVehicle.GetBrakeInput());
+            clutchInput.Set(carVehicle.GetClutchInput());
+            handbrakeInput.Set(carVehicle.GetHandbrakeInput());
+            gForce.Set(carVehicle.GForce);
+        }
+
+        private InterpolatedFloat steerInput = new();
+        private InterpolatedFloat throttleInput = new();
+        private InterpolatedFloat brakeInput = new();
+        private InterpolatedFloat clutchInput = new();
+        private InterpolatedFloat handbrakeInput = new();
+
+        private InterpolatedVector3 gForce = new();
 
         private void DrawWindow(int windowID)
         {
+            var frameRatio = GetFrameRatio();
+
             var engine = carVehicle.Engine;
             var clutch = carVehicle.Clutch;
             var gearbox = carVehicle.Gearbox;
@@ -146,8 +166,7 @@ namespace Drifter.Composites.CarComposites
             GUILayout.BeginVertical(column);
             GUILayout.BeginHorizontal(row);
             DrawLabel(text: "Vehicle (name/curb/gross)", rowTitleLabel);
-            DrawLabel(text: $"{carVehicle.name}", rowLabel);
-            DrawLabel(text: $"{carVehicle.Mass:N0} [kg]", rowLabel);
+            DrawLabel(text: $"{carVehicle.DisplayName}", rowLabel);
             DrawLabel(text: $"{carVehicle.Mass:N0} [kg]", rowLabel);
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
@@ -245,7 +264,7 @@ namespace Drifter.Composites.CarComposites
             /// ENGINE ///
             GUILayout.BeginHorizontal(row);
             DrawLabel(text: "Engine (load/torque/power)", rowTitleLabel);
-            DrawLabel(text: $"{engine.GetLoadNormalized():P}", rowLabel);
+            DrawLabel(text: $"{engine.LoadRatio:P}", rowLabel);
             DrawLabel(text: $"{engine.GetCurrentTorque():N0} [N/m]", rowLabel);
             DrawLabel(text: $"{engine.GetCurrentPower():N1} [kW]", rowLongLabel);
             GUILayout.EndHorizontal();
@@ -265,30 +284,31 @@ namespace Drifter.Composites.CarComposites
 
             GUILayout.EndVertical();
 
+            var speedAbs = Mathf.Abs(carVehicle.GetSpeedInKph());
+
             /// GAUGES ///
             GUILayout.BeginVertical(column);
             GUILayout.BeginHorizontal(row);
             DrawLabel(text: "Gauges (Speed/Tacho/Odo)", rowTitleLabel);
-            DrawLabel(text: $"{carVehicle.Speedometer.Value:N0} [km/h]", rowLabel);
-            DrawLabel(text: $"{carVehicle.Tachometer.Value:N0} [RPM]", rowLabel);
-            DrawLabel(text: $"{carVehicle.Odometer.Value:N} [km]", rowLabel);
+            DrawLabel(text: $"{carVehicle.Speedometer.GetInterpolated(frameRatio):N0} [km/h]", rowLabel);
+            DrawLabel(text: $"{carVehicle.Tachometer.GetInterpolated(frameRatio):N0} [RPM]", rowLabel);
+            DrawLabel(text: $"{carVehicle.Odometer.GetInterpolated(frameRatio):N} [km]", rowLabel);
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
 
-            var input = new GUIStyle(label)
+            var input = new GUIStyle(rowLongLabel)
             {
-                fixedWidth = 30,
+                fixedWidth = 200,
+                fontSize = 15,
+                fontStyle = FontStyle.Bold,
             };
 
             /// INPUTS ///
             GUILayout.BeginVertical(column);
             GUILayout.BeginHorizontal(row);
+
             DrawLabel(text: "Input (str/thr/brk/clth/hndbrk)", rowTitleLabel);
-            DrawLabel(text: $"{carVehicle.SteerInput:0.0}", input);
-            DrawLabel(text: $"{carVehicle.ThrottleInput:0.0}", input);
-            DrawLabel(text: $"{carVehicle.BrakeInput:0.0}", input);
-            DrawLabel(text: $"{carVehicle.ClutchInput:0.0}", input);
-            DrawLabel(text: $"{carVehicle.HandbrakeInput:0.0}", input);
+            DrawLabel(text: string.Format("<color=#4287f5>{0:0.0}</color> | <color=#48f542>{1:0.0}</color> | <color=#ed3434>{2:0.0}</color> | <color=#34edb3>{3:0.0}</color> | <color=#ed6f34>{4:0.0}</color>", steerInput.GetInterpolated(frameRatio), throttleInput.GetInterpolated(frameRatio), brakeInput.GetInterpolated(frameRatio), clutchInput.GetInterpolated(frameRatio), handbrakeInput.GetInterpolated(frameRatio)), input);
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
 
@@ -296,11 +316,24 @@ namespace Drifter.Composites.CarComposites
             GUILayout.BeginVertical(column);
             GUILayout.BeginHorizontal(row);
             DrawLabel(text: "Speed (long/lat/abs)", rowTitleLabel);
-            DrawLabel(text: $"{carVehicle.ForwardVelocity:00.00} [m/s]", rowLabel);
-            DrawLabel(text: $"{carVehicle.RightVelocity:00.00} [m/s]", rowLabel);
-            DrawLabel(text: $"{carVehicle.LinearVelocity:00.00} [m/s]", rowLabel);
+            //DrawLabel(text: $"{carVehicle.ForwardVelocity:00.00} [m/s]", rowLabel);
+            //DrawLabel(text: $"{carVehicle.RightVelocity:00.00} [m/s]", rowLabel);
+            //DrawLabel(text: $"{carVehicle.LinearVelocity:00.00} [m/s]", rowLabel);
             DrawLabel(text: $"{carVehicle.GetSpeedInKph():N0} [km/h]", rowLabel);
-            DrawLabel(text: $"{Mathf.Round(ConvertKphToMph(carVehicle.GetSpeedInKph())):N0} [mph]", label);
+            DrawLabel(text: $"{Mathf.Round(ConvertKphToMph(speedAbs)):N0} [mph]", label);
+            GUILayout.EndHorizontal();
+            GUILayout.EndVertical();
+
+            /// Physics Info ///
+            GUILayout.BeginVertical(column);
+            GUILayout.BeginHorizontal(row);
+
+            var GForce = gForce.GetInterpolated(frameRatio);
+
+            DrawLabel(text: "G-Force (long/lat/abs)", rowTitleLabel);
+            DrawLabel(text: $"{GForce.z:00.00} [g]", rowLabel);
+            DrawLabel(text: $"{GForce.x:00.00} [g]", rowLabel);
+            DrawLabel(text: $"{GForce.magnitude:00.00} [g]", rowLabel);
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
 
@@ -309,7 +342,7 @@ namespace Drifter.Composites.CarComposites
             GUILayout.BeginHorizontal(row);
             DrawLabel(text: $"{carVehicle.Engine.GetRPM():N0} [RPM]", quickLabel);
             DrawLabel(text: carVehicle.Gearbox.GetCurrentGearText(), quickLabel);
-            DrawLabel(text: $"{carVehicle.GetSpeedInKph():N0} [km/h]", quickLabel);
+            DrawLabel(text: $"{speedAbs:N0} [km/h]", quickLabel);
             GUILayout.EndHorizontal();
             GUILayout.EndVertical();
 

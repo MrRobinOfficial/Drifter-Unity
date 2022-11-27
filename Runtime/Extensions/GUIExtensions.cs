@@ -6,6 +6,7 @@ namespace Drifter.Extensions
     {
         private const float MIN_WIDTH = 150f;
 
-        public static void DrawLabel(string text, GUIStyle style) => GUILayout.Label(text, style, GUILayout.ExpandWidth(expand: false));
+        public static void DrawLabel(string text, GUIStyle style) =>
+            GUILayout.Label(text, style, GUILayout.ExpandWidth(expand: false));
     }
 }

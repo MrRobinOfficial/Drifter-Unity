@@ -1,12 +1,22 @@
-﻿using UnityEngine;
+﻿using Drifter.Components;
+using UnityEngine;
 
 namespace Drifter.Modules
 {
     [System.Serializable]
     public sealed class RevlimiterModule : BaseModule
     {
-        //public override void Init(BaseVehicle vehicle) { }
+        public enum RevType : byte
+        {
+            SoftCut,
+            HardCut,
+            TimeBased,
+        }
 
-        //public override void Simulate(float deltaTime) { }
+        [field: SerializeField] public RevType Type { get; set; } = RevType.HardCut;
+
+        public bool IsLimiting { get; private set; } = false;
+
+        public void Simulate(float deltaTime, float engineRPM, ref float throttleInput) { }
     }
 }

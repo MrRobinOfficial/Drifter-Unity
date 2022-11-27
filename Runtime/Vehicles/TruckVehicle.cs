@@ -4,7 +4,7 @@ using UnityEngine.Events;
 namespace Drifter.Vehicles
 {
     [AddComponentMenu("Tools/Drifter/Vehicles/Truck [Vehicle]"), DisallowMultipleComponent]
-    public class TruckVehicle : BaseVehicle, IDamageable
+    public class TruckVehicle : BaseVehicle
     {
         public event UnityAction OnConnectionEstablished;
 
@@ -18,19 +18,6 @@ namespace Drifter.Vehicles
                 _connection = value;
                 OnConnectionEstablished?.Invoke();
             }
-        }
-
-        protected override void OnInit() { }
-
-        protected override void OnSimulate(float deltaTime) { }
-
-        protected override void OnFixedSimulate(float deltaTime) { }
-
-        protected override void OnShutdown() { }
-
-        public void TakeDamage(Object sender, ushort damage)
-        {
-            throw new System.NotImplementedException();
         }
     }
 }

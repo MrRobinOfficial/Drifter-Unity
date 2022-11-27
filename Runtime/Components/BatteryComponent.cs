@@ -9,15 +9,12 @@ namespace Drifter.Components
 
         public float GetPowerNormalized() => 1f;
 
-        public override void Init(BaseVehicle vehicle) { }
-
-        public override void Simulate(float deltaTime, IVehicleData data = null) { }
-
-        public override void Shutdown() { }
+        public override void OnEnable(BaseVehicle vehicle) { }
+        public override void OnDisable(BaseVehicle vehicle) { }
 
         #region Data Saving
-        public override void LoadData(FileData data) => throw new System.NotImplementedException();
-        public override FileData SaveData() => throw new System.NotImplementedException();
+        public override void Load(FileData data) => throw new System.NotImplementedException();
+        public override FileData Save() => throw new System.NotImplementedException();
 
         #endregion
     }

@@ -1,83 +1,134 @@
-using NaughtyAttributes;
+﻿using NaughtyAttributes;
 using UnityEngine.Events;
 using UnityEngine;
 
 using Drifter.Modules;
+using Drifter.Extensions;
 
 using static Drifter.Extensions.DrifterExtensions;
-using static Drifter.Utility.DrifterMathUtility;
-
-using Baracuda.Monitoring;
-using Drifter.Extensions;
+using static Drifter.Utility.MathUtility;
 
 namespace Drifter.Components
 {
     [System.Serializable]
     public sealed class EngineComponent : BaseComponent
     {
-        public event UnityAction OnStarted;
-        public event UnityAction OnStoped;
+        public event UnityAction OnStartup;
+        public event UnityAction OnShutoff;
 
+        /// <summary>
+        /// 
+        /// </summary>
         [field: Header("General Settings")]
         [field: SerializeField] public EngineType Type { get; set; } = EngineType.InternalCombustion;
+
+        /// <summary>
+        /// Efficiency of the engine. Ratio between 0 -> 1
+        /// </summary>
         [field: SerializeField, Range(0f, 1f)] public float Efficiency { get; set; } = 0.8f;
+
+        /// <summary>
+        /// In [kg/m^2]
+        /// </summary>
         [field: SerializeField, Tooltip("kg/m^2")] public float Inertia { get; set; } = 0.125f;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        [field: SerializeField, AllowNesting, ShowIf(nameof(Type), EngineType.InternalCombustion), Range(1, 12)] public byte Cylinders { get; set; } = 4;
+
+        /// <summary>
+        /// 
+        /// </summary>
         [field: SerializeField] public float FrictionTorque { get; set; } = 50f;
+
+        /// <summary>
+        /// Compression factor. Higher equals more compression of braking
+        /// </summary>
         [field: SerializeField, Tooltip("Compression factor. Higher equals more compression of braking")] public float FrictionCoefficient { get; set; } = 0.02f;
 
+
+        /// <summary>
+        /// Idle RPM
+        /// </summary>
         [field: Header("Torque & Power")]
         [field: SerializeField] public float IdleRPM { get; set; } = 900f;
+
+        /// <summary>
+        /// Maximum RPM (Red-line), is the point where engine start to break down.<br />
+        /// The Engine can still operate, but it will damage in the process.<br />
+        /// </summary>
         [field: SerializeField] public float MaxRPM { get; set; } = 8000f;
+
+        /// <summary>
+        /// Maximum power
+        /// </summary>
         [field: SerializeField, Tooltip("Maximum power in [kW]")] public float MaxPower { get; set; } = 317f;
+
+        /// <summary>
+        /// RPM for giving the maximum power
+        /// </summary>
         [field: SerializeField, Tooltip("RPM at maximum power")] public float PowerRPM { get; set; } = 5000f;
 
         [field: Header("Stalling")]
         [field: SerializeField] public bool EnableStalling { get; set; } = false;
+
+        /// <summary>
+        /// Stalls after reaching lower than this RPM
+        /// </summary>
         [field: SerializeField, AllowNesting, ShowIf(nameof(EnableStalling)), Tooltip("Stalls after reaching lower than this RPM")] public float StallRPM { get; set; } = 900f;
+
+        [field: Header("Thermal Settings")]
+        [field: SerializeField] public bool EnableThermals { get; set; } = false;
 
         [field: Header("Starter")]
         [field: SerializeField] public bool AutoStart { get; set; } = true;
-        [field: SerializeField, Tooltip("In [sec]")] public float StarterDuration { get; set; } = 0.4f;
+        [field: SerializeField] public float StarterTorque { get; set; } = 30f;
+
+        /// <summary>
+        /// In [seconds]
+        /// </summary>
+        [field: SerializeField, Tooltip("In [seconds]")]
+        public float StarterDuration { get; set; } = 0.4f;
 
         [field: Header("Modules")]
-        [field: SerializeField] public Optional<RevlimiterModule> Revlimiter { get; private set; }
-        [field: SerializeField] public Optional<LaunchControlModule> LaunchControl { get; private set; }
-        [field: SerializeField] public Optional<TurbochargerModule> Turbocharger { get; private set; }
+        [field: SerializeField] public Optional<SuperchargerModule> Supercharger;
+        [field: SerializeField] public Optional<TurbochargerModule> Turbocharger;
+        [field: SerializeField] public Optional<RevlimiterModule> Revlimiter;
+        [field: SerializeField] public Optional<LaunchControlModule> LaunchControl;
+        [field: SerializeField] public Optional<NOSModule> Nitrous;
 
+        // * Revlimter - Reduce fuel injection, so it doesn't red-line the engine
+
+        /// <summary>
+        /// In [rad/s]
+        /// </summary>
         public float AngularVelocity { get; private set; } = 0f;
+
+        /// <summary>
+        /// 
+        /// </summary>
         public bool IsRunning { get; private set; } = false;
 
-        public float GetLoadNormalized() => SafeDivision(loadTorque, this.GetCurrentTorque());
-
-        [HideInInspector] private float loadTorque;
-        [HideInInspector] private float throttleInput;
-        [HideInInspector] private bool isStalling;
-        [HideInInspector] private bool isClutchEngaged;
-        [HideInInspector] private bool isGearboxNeutral;
-
-        public void LoadVariables(float loadTorque, float throttleInput, bool isStalling, bool isClutchEngaged, bool isGearboxNeutral)
-        {
-            this.loadTorque = loadTorque;
-            this.throttleInput = throttleInput;
-            this.isStalling = isStalling;
-            this.isClutchEngaged = isClutchEngaged;
-            this.isGearboxNeutral = isGearboxNeutral;
-        }
+        public bool IsStalled { get; private set; } = false;
 
         public float GetRPM() => AngularVelocity.ToRPM();
 
-        //public float GetRPMNormalized() => GetRPM() / MaxRPM;
-        //public float GetRPMNormalized2() => (GetRPM() - IdleRPM) / (MaxRPM - IdleRPM);
+        public float GetRPMNormalized(bool includeIdle) => 
+            includeIdle ? (GetRPM() - IdleRPM) / (MaxRPM - IdleRPM) : GetRPM() / MaxRPM;
 
         /// <summary>
-        /// Creates a curve based on points and engine speed
+        /// Creates a curve based on points and engine speed <br/>
+        /// <i>Formula from Vehicle Dynamics: Theory and Application by Reza N. Jazar.</i> 
+        /// <a href="https://link.springer.com/book/10.1007/978-0-387-74244-1">
+        /// <b>Link to his book</b></a><br/>
         /// </summary>
         /// <param name="angularSpeed">Engine speed in [rad/s]</param>
         /// <param name="p1">Point 1</param>
         /// <param name="p2">Point 2</param>
         /// <param name="p3">Point 3</param>
         /// <returns></returns>
-        private float GetTorqueCurve(float angularSpeed, float p1, float p2, float p3)
+        private float EvaluateTorqueCurve(float angularSpeed, float p1, float p2, float p3)
         {
             // Engine Torque Formula
             // Te = Pe / We = P1 + P2*We + P3*We^2
@@ -110,26 +161,19 @@ namespace Drifter.Components
             return p1 + p2 * angularSpeed + p3 * Mathf.Pow(angularSpeed, 2f);
         }
 
-        /// <summary>
-        /// Gets the torque from specific speed.
-        /// </summary>
-        /// <param name="angularSpeed">Engine speed in [rads/s]</param>
-        /// <returns>In [N/m]</returns>
-        public float GetTorque(float angularSpeed)
+        public float GetMaxEffectiveTorque(float RPM)
         {
+            var angularSpeed = RPM.ToRads();
             var power = MaxPower * 1000f; // Kilowatts -> Watts
             var powerSpeed = PowerRPM.ToRads();
 
-            var torque = GetTorqueCurve
+            var torque = EvaluateTorqueCurve
             (
                 angularSpeed,
                 p1: power / powerSpeed,
                 p2: power / Mathf.Pow(powerSpeed, 2f),
                 p3: -(power / Mathf.Pow(powerSpeed, 3f))
             ) * Sign(angularSpeed);
-
-            if (float.IsNaN(torque) || float.IsInfinity(torque) || torque < float.Epsilon)
-                torque = 0f;
 
             return torque;
         }
@@ -139,150 +183,96 @@ namespace Drifter.Components
         /// </summary>
         /// <param name="torque"></param>
         /// <returns></returns>
-        public float GetPower(float torque) => torque * AngularVelocity.ToRPM() / 9550f;
+        public float GetPowerFromTorque(float torque)
+        {
+            const float V = 9550f;
+            return torque * AngularVelocity.ToRPM() / V;
+        }
 
+        /// <summary>
+        /// Starts the engine
+        /// </summary>
         public void Startup()
         {
             IsRunning = true;
-            AngularVelocity = 0f;
+            AngularVelocity = IdleRPM.ToRads();
+            OnStartup?.Invoke();
         }
 
-        public void Stop()
+        /// <summary>
+        /// Stops the engine
+        /// </summary>
+        public void Shutoff()
         {
             IsRunning = false;
             AngularVelocity = 0f;
+            OnShutoff?.Invoke();
         }
 
-        public override void Init(BaseVehicle vehicle)
+        public override void OnEnable(BaseVehicle vehicle)
         {
             if (AutoStart)
                 Startup();
-
-            var peakTorque = 0f;
-
-            for (float angularVelo = 0f; angularVelo < MaxRPM.ToRads(); angularVelo++)
-            {
-                var torque = GetTorque(angularVelo);
-
-                if (torque > peakTorque)
-                    peakTorque = torque;
-            }
-
-            Print($"Peak Torque: {peakTorque:N0} [N/m]", PrintType.Log);
         }
 
-        public override void Simulate(float deltaTime, IVehicleData data = null)
-        {
-            if (!IsRunning)
-                return;
+        public override void OnDisable(BaseVehicle vehicle) => Shutoff();
 
-            var rpm = AngularVelocity.ToRPM();
-            var fricTorque = FrictionCoefficient * rpm + FrictionTorque; // creates linear curve
-            var maxEffectiveTorque = GetTorque(AngularVelocity);
-            var initialTorque = (maxEffectiveTorque + fricTorque) * throttleInput;
+        public float LoadRatio { get; private set; }
+
+        public void Simulate(float deltaTime, float loadTorque, float throttleInput)
+        {
+            throttleInput = Mathf.Max(throttleInput, b: 0.105f); // Idle air control actuator
+
+            var rpm = GetRPM();
+
+            if (Revlimiter.Enabled)
+                Revlimiter.Value.Simulate(deltaTime, rpm, ref throttleInput);
+
+            var fricTorque = CalcFrictionTorque(rpm);
+            var initialTorque = (GetMaxEffectiveTorque(rpm) + fricTorque) * throttleInput;
             var effectiveTorque = initialTorque - fricTorque;
 
-            var angularVelo = AngularVelocity + (effectiveTorque - loadTorque) *
-                Efficiency / Inertia * deltaTime;
+            if (LaunchControl.Enabled) { }
 
-            var idleRPM = isClutchEngaged || isGearboxNeutral ? IdleRPM : 0f;
+            if (Supercharger.Enabled) { }
 
-            AngularVelocity = Mathf.Clamp(angularVelo, idleRPM.ToRads(), MaxRPM.ToRads());
-
-            if (EnableStalling &&
-                GetRPM() < StallRPM &&
-                IsRunning && isStalling)
-                Stop(); // Stall the engine
-
-            if (GetRPM() > IdleRPM)
+            if (Turbocharger.Enabled)
             {
-                var num = fricTorque;
+                Turbocharger.Value.Simulate(deltaTime, this, throttleInput);
 
-                if (num < 0f)
-                    num = 0f;
-
-                if (Mathf.Abs(num) > Mathf.Abs(effectiveTorque))
-                    IsBackfiring = Random.value > 0.995f;
+                var extraTorque = Turbocharger.Value.GetOutputTorque(effectiveTorque);
+                effectiveTorque += extraTorque;
             }
 
-            if (IsBackfiring)
-                backfireTimer += Time.deltaTime * 10f;
+            LoadRatio = SafeDivision(effectiveTorque, GetMaxEffectiveTorque(rpm));
 
-            if (backfireTimer > 1f)
-            {
-                IsBackfiring = false;
-                backfireTimer = 0f;
-            }
+            if (float.IsNaN(LoadRatio) || float.IsInfinity(LoadRatio))
+                LoadRatio = 0f;
+
+            AngularVelocity += (effectiveTorque - loadTorque) * Efficiency / Inertia * deltaTime;
+
+            //var rps = newRPM / 60f;
+            //var domaintFreq = (float)(Cylinders / 2f) * rps;
+
+            // * Idle air control actuator - Idling(Clamp at IdleRPM) is controlled by ECU or clamp throttle value by a number
+
+            //if (AngularVelocity < IdleRPM.ToRads())
+            //    AngularVelocity = IdleRPM.ToRads();
+
+            if (AngularVelocity < 0f)
+                Shutoff();
+
+            if (AngularVelocity > MaxRPM.ToRads())
+                TakeDamage(sender: null, damage: 10000);
+
+            // Creates linear curve
+            float CalcFrictionTorque(float rpm) => FrictionCoefficient * rpm + FrictionTorque; 
         }
-
-        public bool IsBackfiring { get; private set; } = false;
-
-        private float backfireTimer = 0f;
-
-        public override void Shutdown() { }
 
         #region Data Saving
+        public override void Load(FileData data) => throw new System.NotImplementedException();
 
-        public override void LoadData(FileData data)
-        {
-            data.ReadValue("Engine", "Type", out EngineType type);
-            data.ReadValue("Engine", "Efficiency", out float efficiency);
-            data.ReadValue("Engine", "Inertia", out float inertia);
-            data.ReadValue("Engine", "FrictionTorque", out float frictionTorque);
-            data.ReadValue("Engine", "FrictionCoefficient", out float frictionCoefficient);
-
-            Type = type;
-            Efficiency = efficiency;
-            Inertia = inertia;
-            FrictionTorque = frictionTorque;
-            FrictionCoefficient = frictionCoefficient;
-
-            data.ReadValue("Engine", "IdleRPM", out float idleRPM);
-            data.ReadValue("Engine", "MaxPower", out float maxPower);
-            data.ReadValue("Engine", "MaxRPM", out float maxRPM);
-
-            IdleRPM = idleRPM;
-            MaxPower = maxPower;
-            MaxRPM = maxRPM;
-
-            data.ReadValue("Engine", "EnableStalling", out bool enableStalling);
-            EnableStalling = enableStalling;
-
-            if (enableStalling)
-            {
-                data.ReadValue("Engine", "StallRPM", out float stallRPM);
-                StallRPM = stallRPM;
-            }
-
-            data.ReadValue("Engine", "StartDuration", out float starterDuration);
-
-            StarterDuration = starterDuration;
-        }
-
-        public override FileData SaveData()
-        {
-            var data = new FileData();
-
-            data.WriteValue("Engine", "Type", Type);
-            data.WriteValue("Engine", "Efficiency", Efficiency);
-            data.WriteValue("Engine", "Inertia", Inertia);
-            data.WriteValue("Engine", "FrictionTorque", FrictionTorque);
-            data.WriteValue("Engine", "FrictionCoefficient", FrictionCoefficient);
-
-            data.WriteValue("Engine", "IdleRPM", IdleRPM);
-            data.WriteValue("Engine", "MaxPower", MaxPower);
-            data.WriteValue("Engine", "MaxRPM", MaxRPM);
-
-            data.WriteValue("Engine", "EnableStalling", EnableStalling);
-
-            if (EnableStalling)
-                data.WriteValue("Engine", "StallRPM", StallRPM);
-
-            data.WriteValue("Engine", "StartDuration", StarterDuration);
-
-            return data;
-        }
-
+        public override FileData Save() => throw new System.NotImplementedException(); 
         #endregion
     }
 }

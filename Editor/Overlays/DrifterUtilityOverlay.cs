@@ -1,5 +1,6 @@
 using Drifter.Extensions;
 using Drifter.Vehicles;
+using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.Overlays;
 using UnityEngine;
@@ -58,7 +59,44 @@ namespace Drifter.Editor.Overlays
 
             defaultRoot.Add(linkLabel);
 
+            var vehicleContainer = new VisualElement();
+            vehicleContainer.style.flexGrow = 1;
+            vehicleContainer.style.flexDirection = FlexDirection.Column;
+
+            vehicleContainer.Insert(index: 0, 
+                new Label($"Vehicles [{VehicleManager.VehicleCount}]"));
+
+            foreach (var vehicle in VehicleManager.Vehicles)
+                vehicleContainer.Add(CreateVehicleItem(vehicle));
+
+            defaultRoot.Add(vehicleContainer);
+
             return defaultRoot;
+
+            static VisualElement CreateVehicleItem(KeyValuePair<System.Guid, BaseVehicle> item)
+            {
+                var root = new VisualElement();
+
+                //root.style.flexGrow = 1;
+                //root.style.flexDirection = FlexDirection.Row;
+                //root.style.justifyContent = Justify.SpaceBetween;
+                //root.style.alignItems = Align.Stretch;
+                //root.style.alignContent = Align.Stretch;
+                //root.style.alignItems = Align.Stretch;
+                //root.style.alignSelf = Align.Stretch;
+
+                var keyFoldout = new Foldout()
+                {
+                    text = item.Key.ToString(),
+                };
+
+                var displayName = new Label($"DisplayName={item.Value.DisplayName}");
+                keyFoldout.Add(displayName);
+
+                root.Add(keyFoldout);
+
+                return root;
+            }
         }
 
         private VisualElement HandleSelection()

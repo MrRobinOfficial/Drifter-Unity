@@ -101,8 +101,8 @@ namespace Drifter.Samples.RaceSystem
 
         public IReadOnlyList<TimeSpan> LapTimes => _lapTimes;
 
-        public void Enable() => _vehicle.IsDriveable = true;
+        public void Enable() { } // _vehicle.IsDriveable = true;
 
-        public void Disable() => _vehicle.IsDriveable = false;
+        public void Disable() { } // _vehicle.IsDriveable = false;
     }
 }

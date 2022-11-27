@@ -2,7 +2,7 @@
 using UnityEngine;
 
 using static Drifter.Extensions.DrifterExtensions;
-using static Drifter.Utility.DrifterMathUtility;
+using static Drifter.Utility.MathUtility;
 
 namespace Drifter.Components
 {
@@ -20,10 +20,18 @@ namespace Drifter.Components
         public float Torque { get; private set; } = 0f;
         public float LockInput { get; private set; } = 0f;
 
-        public void Simulate(float clutchInput, float outputShaftVelocity, EngineComponent engine, float gearboxRatio)
+        [ShowNativeProperty] public bool IsEngaged { get; private set; } = false;
+        [ShowNativeProperty] public bool IsDisengaged { get; private set; } = false;
+
+        public float GetRPM() => AngularVelocity.ToRPM();
+
+        public override void OnEnable(BaseVehicle vehicle) { }
+        public override void OnDisable(BaseVehicle vehicle) { }
+
+        public void Simulate(float clutchInput, float outputShaftVelocity, EngineComponent engine, float outputRatio)
         {
             AngularVelocity = Mathf.Max(outputShaftVelocity, 0f);
-            var slip = (engine.AngularVelocity - AngularVelocity) * Sign(Mathf.Abs(gearboxRatio));
+            var slip = (engine.AngularVelocity - AngularVelocity) * Sign(Mathf.Abs(outputRatio));
 
             //const float MIN_RANGE = 900f;
             //const float MAX_RANGE = 1900f;
@@ -40,7 +48,7 @@ namespace Drifter.Components
             LockInput = Type switch
             {
                 ClutchType.FrictionDisc => 1f - clutchInput,
-                ClutchType.TorqueConverter => Mathf.Min(rangeVelocity + (gearboxRatio == 0f ? 1f : 0f), b: 1f),
+                ClutchType.TorqueConverter => Mathf.Min(rangeVelocity + (outputRatio == 0f ? 1f : 0f), b: 1f),
                 _ => 1f,
             };
 
@@ -65,24 +73,10 @@ namespace Drifter.Components
             Torque = currentTorque + ((Torque - currentTorque) * Damping);
         }
 
-        [ShowNativeProperty] public bool IsEngaged { get; private set; } = false;
-        [ShowNativeProperty] public bool IsDisengaged { get; private set; } = false;
-
-        public float GetRPM() => AngularVelocity.ToRPM();
-
-        public override void Init(BaseVehicle vehicle)
-        {
-
-        }
-
-        public override void Simulate(float deltaTime, IVehicleData data = null)
-        {
-
-        }
 
         #region Data Saving
 
-        public override void LoadData(FileData data)
+        public override void Load(FileData data)
         {
             data.ReadValue("Clutch", "Type", out ClutchType type);
             data.ReadValue("Clutch", "TorqueCapacity", out float torqueCapacity);
@@ -100,7 +94,7 @@ namespace Drifter.Components
             Damping = damping;
         }
 
-        public override FileData SaveData()
+        public override FileData Save()
         {
             var data = new FileData();
 
@@ -114,8 +108,6 @@ namespace Drifter.Components
 
             return data;
         }
-
-        public override void Shutdown() => throw new System.NotImplementedException();
 
         #endregion
     }

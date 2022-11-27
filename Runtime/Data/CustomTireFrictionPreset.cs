@@ -1,6 +1,6 @@
 ﻿using UnityEngine;
 
-using static Drifter.Utility.DrifterMathUtility;
+using static Drifter.Utility.MathUtility;
 
 namespace Drifter.Data
 {

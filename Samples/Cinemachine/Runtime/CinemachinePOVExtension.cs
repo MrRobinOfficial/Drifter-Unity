@@ -119,10 +119,10 @@ namespace Drifter.Samples.Cinemachine
             var invertedModifier = -Vector3.Dot(vcam.Follow.up, Vector3.down);
 
             yawAngle += inputX * invertedModifier;
-            yawAngle = DrifterMathUtility.ClampAngle(yawAngle, HorizontalClamp.x, HorizontalClamp.y);
+            yawAngle = MathUtility.ClampAngle(yawAngle, HorizontalClamp.x, HorizontalClamp.y);
 
             pitchAngle -= inputY * invertedModifier;
-            pitchAngle = DrifterMathUtility.ClampAngle(pitchAngle, VerticalClamp.x, VerticalClamp.y);
+            pitchAngle = MathUtility.ClampAngle(pitchAngle, VerticalClamp.x, VerticalClamp.y);
 
             state.RawOrientation = Quaternion.Euler(rot.x + pitchAngle, rot.y + yawAngle, rot.z);
 

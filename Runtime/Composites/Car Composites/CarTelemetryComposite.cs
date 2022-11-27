@@ -1,3 +1,4 @@
+#if false
 using System.Collections.Generic;
 using System.Collections;
 
@@ -129,7 +130,7 @@ namespace Drifter.Composites.CarComposites
             public WheelUI(WheelBehaviour wheel)
             {
                 wheelRPM = default;
-                steerAngle =  default;
+                steerAngle = default;
                 compression = default;
                 normalForce = default;
 
@@ -172,7 +173,7 @@ namespace Drifter.Composites.CarComposites
             }
         }
 
-        private readonly Dictionary<WheelBehaviour, WheelUI> wheels  = new();
+        private readonly Dictionary<WheelBehaviour, WheelUI> wheels = new();
 
         private void CreateTelemetry(VisualElement container)
         {
@@ -330,4 +331,5 @@ namespace Drifter.Composites.CarComposites
             return element;
         }
     }
-}
+} 
+#endif

@@ -4,7 +4,7 @@ using Drifter.Components;
 using Drifter.Data;
 using UnityEngine;
 
-using static Drifter.Utility.DrifterMathUtility;
+using static Drifter.Utility.MathUtility;
 
 namespace Drifter.Extensions
 {
@@ -15,7 +15,7 @@ namespace Drifter.Extensions
             public int Compare(RaycastHit a, RaycastHit b) => a.distance.CompareTo(b.distance) * -1;
         }
 
-        private static readonly RaySort raySort = new();
+        public static readonly RaySort RAY_SORTER = new();
 
         /// <summary>
         /// Gets Slip Ratio (Friction Torque Method)
@@ -148,73 +148,6 @@ namespace Drifter.Extensions
             return Mathf.Clamp(-Mathf.Atan2(velocityAtWheel.x, Mathf.Abs(velocityAtWheel.z)) * damping * damping, -PI_2x, PI_2x) * Mathf.Rad2Deg;
         }
 
-        public static Mesh GenerateWheelCollider(WheelBehaviour wheel)
-        {
-            var tran = wheel.transform;
-            var mesh = new Mesh();
-            var vertices = new List<Vector3>();
-            var triangles = new List<int>();
-
-            var halfWidth = wheel.Width / 1.5f;
-            var theta = 0.0f;
-            var startAngleOffset = Mathf.PI / 18.0f;
-            var x = wheel.Radius * 0.5f * Mathf.Cos(theta);
-            var y = wheel.Radius * 0.5f * Mathf.Sin(theta);
-            var pos = tran.InverseTransformPoint(tran.position + tran.up * y + tran.forward * x);
-            var newPos = pos;
-
-            var vertexIndex = 0;
-            for (theta = startAngleOffset; theta <= Mathf.PI * 2 + startAngleOffset; theta += Mathf.PI / 12.0f)
-            {
-                if (theta <= Mathf.PI - startAngleOffset)
-                {
-                    x = wheel.Radius * 1.08f * Mathf.Cos(theta);
-                    y = wheel.Radius * 1.08f * Mathf.Sin(theta);
-                }
-                else
-                {
-                    x = wheel.Radius * 0.06f * Mathf.Cos(theta);
-                    y = wheel.Radius * 0.06f * Mathf.Sin(theta);
-                }
-
-                newPos = tran.InverseTransformPoint(tran.position + tran.up * y + tran.forward * x);
-
-                // Left Side
-                var p0 = pos - tran.InverseTransformDirection(tran.right) * halfWidth;
-                var p1 = newPos - tran.InverseTransformDirection(tran.right) * halfWidth;
-
-                // Right side
-                var p2 = pos + tran.InverseTransformDirection(tran.right) * halfWidth;
-                var p3 = newPos + tran.InverseTransformDirection(tran.right) * halfWidth;
-
-                vertices.Add(p0);
-                vertices.Add(p1);
-                vertices.Add(p2);
-                vertices.Add(p3);
-
-                // Triangles (double sided)
-                // 013
-                triangles.Add(vertexIndex + 3);
-                triangles.Add(vertexIndex + 1);
-                triangles.Add(vertexIndex + 0);
-
-                // 023
-                triangles.Add(vertexIndex + 0);
-                triangles.Add(vertexIndex + 2);
-                triangles.Add(vertexIndex + 3);
-
-                pos = newPos;
-                vertexIndex += 4;
-            }
-
-            mesh.vertices = vertices.ToArray();
-            mesh.triangles = triangles.ToArray();
-            mesh.RecalculateBounds();
-            mesh.RecalculateNormals();
-            mesh.RecalculateTangents();
-            return mesh;
-        }
-
         public static float CalcSuspension(this SuspensionPreset preset, WheelBehaviour wheel, float deltaTime, ref float compression, ref float lastLength, ref bool isFullCompressed, ref bool isFullUncompressed)
         {
             if (preset == null)
@@ -275,171 +208,6 @@ namespace Drifter.Extensions
                 force = 0f;
 
             return force;
-        }
-
-        public enum RaycastCastType : byte
-        {
-            Single,
-            Multiple,
-            Sphere,
-        }
-
-        public static bool WheelCast(this WheelBehaviour wheel, RaycastCastType type, Ray ray, out RaycastHit hit, LayerMask layerMask) => type switch
-        {
-            RaycastCastType.Single => CastSingle(wheel, ray, out hit, layerMask),
-            RaycastCastType.Multiple => CastMultiple(wheel, ray, out hit, layerMask),
-            _ => CastSingle(wheel, ray, out hit, layerMask),
-        };
-
-        private static bool CastSingle(WheelBehaviour wheel, Ray ray, out RaycastHit hit, LayerMask layerMask)
-        {
-            const float GROUND_PENETRATION = 0.01f;
-
-            var rideHeight = wheel.Suspension != null ? wheel.Suspension.GetRideHeight() : 0f;
-            var maxDistance = rideHeight + (wheel.Radius * 2f);
-
-            var isGrounded = Physics.Raycast(ray, out hit, maxDistance, layerMask);
-
-            if (isGrounded && hit.transform != null && hit.transform.IsChildOf(wheel.transform.root))
-                isGrounded = false;
-
-            if (isGrounded && hit.collider != null && hit.collider.isTrigger)
-                isGrounded = false;
-
-            return isGrounded;
-        }
-
-        private static bool CastMultiple(WheelBehaviour wheel, Ray ray, out RaycastHit hit, LayerMask layerMask)
-        {
-            const float MAX_ANGLE = 360f;
-            const int MAX_RAYS = 36;
-            const int MAX_RAYS_TOTAL = MAX_RAYS * 3;
-
-            ray.origin = wheel.transform.position;
-            var rideHeight = wheel.Suspension != null ? wheel.Suspension.GetRideHeight() : 0f;
-            var maxDistance = rideHeight + wheel.Radius;
-
-            var results = new NativeArray<RaycastHit>(MAX_RAYS_TOTAL, Allocator.TempJob);
-            var commands = new NativeArray<RaycastCommand>(MAX_RAYS_TOTAL, Allocator.TempJob);
-
-            for (int i = 0; i < MAX_RAYS; i++)
-            {
-                var rot = Quaternion.AngleAxis(i * (float)(MAX_ANGLE / MAX_RAYS), wheel.transform.right);
-                var direction = rot * wheel.transform.forward;
-
-                var leftOrigin = ray.origin - wheel.transform.right * wheel.Width * 0.5f;
-                var rightOrigin = ray.origin + wheel.transform.right * wheel.Width * 0.5f;
-
-                commands[i] = new RaycastCommand(ray.origin, direction, maxDistance, layerMask);
-                commands[i + 1] = new RaycastCommand(leftOrigin, direction, maxDistance, layerMask);
-                commands[i + 2] = new RaycastCommand(rightOrigin, direction, maxDistance, layerMask);
-
-                Debug.DrawRay(ray.origin, direction * maxDistance, Color.green);
-                //Debug.DrawRay(leftOrigin, direction * maxDistance, Color.red);
-                //Debug.DrawRay(rightOrigin, direction * maxDistance, Color.blue);
-            }
-
-            var handle = RaycastCommand.ScheduleBatch(commands, results, minCommandsPerJob: MAX_RAYS_TOTAL);
-            handle.Complete();
-
-            var minDist = float.MaxValue;
-            var index = 0;
-
-            for (int i = 0; i < results.Length; i++)
-            {
-                //if (results[i].collider != null &&
-                //    results[i].collider.isTrigger)
-                //    continue;
-
-                //if (results[i].transform != null && 
-                //    results[i].transform.IsChildOf(wheel.transform.root))
-                //    continue;
-
-                if (results[i].distance > float.Epsilon &&
-                    results[i].distance < minDist)
-                {
-                    index = i;
-                    minDist = results[i].distance;
-                }
-            }
-
-            hit = results[index];
-
-            results.Dispose();
-            commands.Dispose();
-
-            return hit.collider != null;
-        }
-
-        /// <summary>
-        /// Check if a hit point is inside the cylinder defined by center, radius and width
-        /// </summary>
-        /// <param name="transform"></param>
-        /// <param name="hitPoint"></param>
-        /// <param name="center"></param>
-        /// <param name="radius"></param>
-        /// <param name="width"></param>
-        /// <returns></returns>
-        public static bool CastCylinder(this Transform transform, Vector3 hitPoint, Vector3 center, float radius, float width)
-        {
-            // Seems like the orientation is always on x axis
-            var orientation = Vector3.right;
-            var pointRel = transform.InverseTransformPoint(hitPoint);
-            // center is now origin
-            // dist on direction = pointRel scalar orientation
-            var distRelDir = Vector3.Dot(pointRel, orientation) / orientation.magnitude;
-            // Division shouldn't be necessary since orientation is normalized.
-            // In case vector is outside the tire
-
-            const float THRESHOLD = 2f;
-
-            if (distRelDir > width / THRESHOLD || distRelDir < -width / THRESHOLD)
-                return false;
-
-            return true;
-        }
-
-        public static bool WheelCast(this WheelBehaviour wheel, float radius, float width, Vector3 position, Vector3 up, Vector3 forward,
-            Vector3 right, out RaycastHit batchedHit, LayerMask layerMask)
-        {
-            const int MAX_RAYS = 25;
-
-            var results = new NativeArray<RaycastHit>(MAX_RAYS, Allocator.TempJob);
-            var commands = new Unity.Collections.NativeList<RaycastCommand>(MAX_RAYS, Allocator.TempJob);
-
-            var halfWidth = width * 0.5f;
-            var theta = 0f;
-            var x = radius * Mathf.Cos(theta);
-            var y = radius * Mathf.Sin(theta);
-            var pos = position + up * y + forward * x;
-            var newPos = pos;
-
-            for (theta = 0f; theta <= Mathf.PI * 2f; theta += Mathf.PI / 12f)
-            {
-                x = radius * Mathf.Cos(theta);
-                y = radius * Mathf.Sin(theta);
-
-                newPos = position + up * y + forward * x;
-
-                var startPos = pos - right * halfWidth;
-                var endPos = newPos + right * halfWidth;
-                var direction = endPos - startPos;
-
-                commands.Add(new RaycastCommand(startPos, direction, distance: width, layerMask: layerMask));
-
-                pos = newPos;
-            }
-
-            var handle = RaycastCommand.ScheduleBatch(commands, results, minCommandsPerJob: MAX_RAYS);
-            handle.Complete();
-
-            results.Sort(raySort);
-            batchedHit = results[index: 0];
-
-            results.Dispose();
-            commands.Dispose();
-
-            return batchedHit.distance > float.Epsilon;
         }
 
         public static float GetSlipping(this WheelBehaviour wheel, float minRange = 0f, float maxRange = 30f)

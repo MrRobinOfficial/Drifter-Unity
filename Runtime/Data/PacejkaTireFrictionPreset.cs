@@ -1,7 +1,7 @@
 using UnityEngine;
 using NaughtyAttributes;
 
-using static Drifter.Utility.DrifterMathUtility;
+using static Drifter.Utility.MathUtility;
 
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;

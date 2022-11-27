@@ -1,34 +1,69 @@
-using NaughtyAttributes;
 using Drifter.Components;
 using Drifter.Modules;
-using UnityEngine;
-using Drifter.Attributes;
 using Drifter.Utility;
+using NaughtyAttributes;
+using UnityEngine;
+using UnityEngine.Events;
+using static Drifter.Extensions.DrifterExtensions;
 
 namespace Drifter.Vehicles
 {
     [AddComponentMenu("Tools/Drifter/Vehicles/Car [Vehicle]"), DisallowMultipleComponent]
     public sealed class CarVehicle : BaseVehicle
     {
+        public event UnityAction OnBackfireEvent;
+
+        private const string k_EngineFileName = "Engine.ini";
+        private const string k_ClutchFileName = "Clutch.ini";
+        private const string k_GearboxFileName = "Gearbox.ini";
+        private const string k_FrontAxleFileName = "FrontAxle.ini";
+        private const string k_RearAxleFileName = "RearAxle.ini";
+
         [field: Header("Measurements")]
         [field: SerializeField] public float WheelBase { get; private set; } = 2.425f;
         [field: SerializeField] public float FrontTrack { get; private set; } = 1.460f;
         [field: SerializeField] public float RearTrack { get; private set; } = 1.420f;
         [field: SerializeField] public float TurningCircle { get; private set; } = 10.2f;
 
-        [Header("Steering Settings")]
-        [SerializeField] uint m_SteerRange = 900;
-        [SerializeField] uint m_SteeRatio = 10;
-        [SerializeField] bool m_LockOnStandby = true;
+        [field: Header("Steering Settings")]
+        [field: SerializeField] public uint SteerRange { get; private set; } = 900;
+        [field: SerializeField] public uint SteeRatio { get; private set; } = 10;
+        [field: SerializeField] public bool LockOnStandby { get; private set; } = true;
 
         [field: Header("Powertrain Settings")]
         [field: SerializeField] public DriveType DriveType { get; set; } = DriveType.FWD;
         [field: SerializeField] public TransmissionType TransmissionType { get; set; } = default;
-        [field: SerializeField, ShowIf(nameof(DriveType), DriveType.FourWD)] public float High4WDRatio { get; set; } = 1f;
-        [field: SerializeField, ShowIf(nameof(DriveType), DriveType.FourWD)] public float Low4WDRatio { get; set; } = 3f;
-        [field: SerializeField, Range(1f, 0f), ShowIf(nameof(DriveType), DriveType.AWD)] public float AWDBias { get; set; } = 0.5f;
-        [field: SerializeField, Range(1f, 0f)] public float BrakeBias { get; set; } = 0.5f;
-        [field: SerializeField, ShowIf(nameof(TransmissionType), ~TransmissionType.Manual)] public bool AutoReverse { get; set; } = false;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        [field: SerializeField, ShowIf(nameof(DriveType), DriveType.FourWD)]
+        public float High4WDRatio { get; set; } = 1f;
+
+        /// <summary>
+        /// 
+        /// </summary>
+
+        [field: SerializeField, ShowIf(nameof(DriveType), DriveType.FourWD)]
+        public float Low4WDRatio { get; set; } = 3f;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        [field: SerializeField, Range(1f, 0f), ShowIf(nameof(DriveType), DriveType.AWD)] 
+        public float AWDBias { get; set; } = 0.5f;
+
+        /// <summary>
+        /// 
+        /// </summary>
+        [field: SerializeField, Range(1f, 0f)]
+        public float BrakeBias { get; set; } = 0.5f;
+
+        /// <summary>
+        /// Enable switching throttle and brake pedal automatically (Arcade Style).
+        /// </summary>
+        [field: SerializeField, ShowIf(nameof(TransmissionType), TransmissionType.Automatic)] 
+        public bool AutoReverse { get; set; } = false;
 
         [field: Header("Powertrain Components")]
         [field: SerializeField] public Optional<BatteryComponent> Battery { get; private set; } = default;
@@ -41,6 +76,15 @@ namespace Drifter.Vehicles
 
         [field: Header("Powertrain Modules")]
         [field: SerializeField] public Optional<FuelModule> Fuel { get; private set; } = default;
+
+        public InterpolatedFloat Speedometer { get; private set; } = new();
+        public InterpolatedFloat Tachometer { get; private set; } = new();
+        public InterpolatedFloat Odometer { get; private set; } = new();
+
+        /// <summary>
+        /// In [rad/s]
+        /// </summary>
+        public float DriveShaftVelocity { get; private set; } = 0f;
 
         public WheelBehaviour[] WheelArray
         {
@@ -63,315 +107,171 @@ namespace Drifter.Vehicles
 
         private WheelBehaviour[] _wheelArray = default;
 
-        public bool IsGrounded => FrontAxle.IsGrounded || RearAxle.IsGrounded;
-
-        public float RawSteerInput
+        public override void FetchData()
         {
-            get => _steerInput;
-            set
-            {
-                if (!Engine.IsRunning && m_LockOnStandby)
-                    return;
+            base.FetchData();
 
-                _steerInput = Mathf.Clamp(value, -1f, 1f);
-            }
+            this.TryFetchData(k_EngineFileName, Engine);
+            this.TryFetchData(k_ClutchFileName, Clutch);
+            this.TryFetchData(k_GearboxFileName, Gearbox);
+            this.TryFetchData(k_FrontAxleFileName, FrontAxle);
+            this.TryFetchData(k_RearAxleFileName, RearAxle);
         }
 
-        public float RawThrottleInput
+        public override void PushData()
         {
-            get => _throttleInput;
-            set => _throttleInput = Mathf.Clamp(value, 0f, 1f);
+            base.PushData();
+
+            this.TryPushData(k_EngineFileName, Engine);
+            this.TryPushData(k_ClutchFileName, Clutch);
+            this.TryPushData(k_GearboxFileName, Gearbox);
+            this.TryPushData(k_FrontAxleFileName, FrontAxle);
+            this.TryPushData(k_RearAxleFileName, RearAxle);
         }
 
-        public float RawBrakeInput
+        protected override void Load(FileData data)
         {
-            get => _brakeInput;
-            set => _brakeInput = Mathf.Clamp(value, 0f, 1f);
+            base.Load(data);
         }
 
-        public float RawClutchInput
+        protected override FileData Save()
         {
-            get => _clutchInput;
-            set => _clutchInput = Mathf.Clamp(value, 0f, 1f);
+            var data = new FileData(base.Save());
+
+            data.WriteValue("Steering", "SteerRange", SteerRange);
+            data.WriteValue("Steering", "SteeRatio", SteeRatio);
+            data.WriteValue("Steering", "LockOnStandby", LockOnStandby);
+
+            return data;
         }
 
-        public float RawHandbrakeInput
+        public float GetMaxSteerAngle() => SteerRange * 0.5f;
+
+        public float GetSteerAngle() => GetMaxSteerAngle() * _steerInput;
+
+        private float _steerInput, _throttleInput, _brakeInput, _clutchInput, _handbrakeInput;
+
+        public float GetSteerInput() => _steerInput;
+        public float GetThrottleInput() => _throttleInput;
+        public float GetBrakeInput() => _brakeInput;
+        public float GetClutchInput() => _clutchInput;
+        public float GetHandbrakeInput() => _handbrakeInput;
+
+        public void SetSteerInput(float value) => _steerInput = Mathf.Clamp(value, -1f, 1f);
+
+        public void SetThrottleInput(float value) => _throttleInput = Mathf.Clamp01(value);
+
+        public void SetBrakeInput(float value) => _brakeInput = Mathf.Clamp01(value);
+
+        public void SetClutchInput(float value) => _clutchInput = Mathf.Clamp01(value);
+
+        public void SetHandbrakeInput(float value) => _handbrakeInput = Mathf.Clamp01(value);
+
+        protected override void OnEnable()
         {
-            get => _handbrakeInput;
-            set => _handbrakeInput = Mathf.Clamp(value, 0f, 1f);
+            base.OnEnable();
+
+            if (ECU.Enabled)
+                ECU.Value.OnEnable(this);
+
+            Engine.OnEnable(this);
+            Clutch.OnEnable(this);
+            Gearbox.OnEnable(this);
+            FrontAxle.OnEnable(this);
+            RearAxle.OnEnable(this);
         }
 
-        public float SteerInput => ECU.IsNotNull ? ECU.Value.SteerInput : RawSteerInput;
-        public float ThrottleInput => ECU.IsNotNull ? ECU.Value.ThrottleInput : RawThrottleInput;
-        public float BrakeInput => ECU.IsNotNull ? ECU.Value.BrakeInput : RawBrakeInput;
-        public float ClutchInput => ECU.IsNotNull ? ECU.Value.ClutchInput : RawClutchInput;
-        public float HandbrakeInput => ECU.IsNotNull ? ECU.Value.HandbrakeInput : RawHandbrakeInput;
-
-        [HideInInspector] private float _leftSteerAngle, _rightSteerAngle;
-        [HideInInspector] private float _steerInput, _throttleInput, _brakeInput, _clutchInput, _handbrakeInput;
-
-        public float GetSteerAngle() => GetMaxSteerAngle() * SteerInput;
-
-        public float GetSteerAngleNormalized() => GetSteerAngle() / GetMaxSteerAngle();
-
-        public float GetMaxSteerAngle() => (float)m_SteerRange / 2;
-
-        public float GetDriveshaftSpeedInKph()
+        protected override void OnDisable()
         {
-            var velo = 0f;
+            base.OnDisable();
 
-            switch (DriveType)
-            {
-                case DriveType.FWD:
-                    velo += FrontAxle.LeftWheel.AngularVelocity * FrontAxle.LeftWheel.Radius;
-                    velo += FrontAxle.RightWheel.AngularVelocity * FrontAxle.RightWheel.Radius;
-                    velo /= 2;
-                    break;
+            if (ECU.Enabled)
+                ECU.Value.OnEnable(this);
 
-                case DriveType.RWD:
-                    velo += RearAxle.LeftWheel.AngularVelocity * RearAxle.LeftWheel.Radius;
-                    velo += RearAxle.RightWheel.AngularVelocity * RearAxle.RightWheel.Radius;
-                    velo /= 2;
-                    break;
-
-                case DriveType.AWD:
-                    velo += FrontAxle.LeftWheel.AngularVelocity * FrontAxle.LeftWheel.Radius;
-                    velo += FrontAxle.RightWheel.AngularVelocity * FrontAxle.RightWheel.Radius;
-                    velo += RearAxle.LeftWheel.AngularVelocity * RearAxle.LeftWheel.Radius;
-                    velo += RearAxle.RightWheel.AngularVelocity * RearAxle.RightWheel.Radius;
-                    velo /= 4;
-                    break;
-            }
-
-            return Mathf.Abs(velo) * 3.6f;
+            Engine.OnDisable(this);
+            Clutch.OnDisable(this);
+            Gearbox.OnDisable(this);
+            FrontAxle.OnDisable(this);
+            RearAxle.OnDisable(this);
         }
 
-        private (float left, float right) GetWheelAngle()
+        private float asd;
+
+        protected override void FixedUpdate()
         {
-            var input = GetSteerAngleNormalized();
+            base.FixedUpdate();
 
-            if (input > float.Epsilon)
-            {
-                _leftSteerAngle = Mathf.Rad2Deg * Mathf.Atan(WheelBase / (TurningCircle + (RearTrack / 2f))) * input;
+            var deltaTime = Time.fixedDeltaTime;
 
-                _rightSteerAngle = Mathf.Rad2Deg * Mathf.Atan(WheelBase / (TurningCircle - (RearTrack / 2f))) * input;
-            }
-            else if (input < -float.Epsilon)
-            {
-                _leftSteerAngle = Mathf.Rad2Deg * Mathf.Atan(WheelBase / (TurningCircle - (RearTrack / 2f))) * input;
+            //Speedometer.Set(Mathf.Abs(GetSpeedInKph()));
 
-                _rightSteerAngle = Mathf.Rad2Deg * Mathf.Atan(WheelBase / (TurningCircle + (RearTrack / 2f))) * input;
-            }
-            else
-            {
-                _leftSteerAngle = 0f;
-                _rightSteerAngle = 0f;
-            }
+            const float DRIVESHAFT_RADIUS = 0.0150876f; // In [m]
 
-            return (_leftSteerAngle, _rightSteerAngle);
-        }
+            Speedometer.Set(DriveShaftVelocity * DRIVESHAFT_RADIUS);
+            Tachometer.Set(Engine.GetRPM());
 
-        protected override void OnInit()
-        {
-            if (Fuel.IsNotNull)
-                Fuel.Value.Volume = Fuel.Value.Capacity;
+            //Odometer.Set();
 
-            if (ECU.IsNotNull)
-                ECU.Value.Init(this);
+            if (ECU.Enabled)
+                ECU.Value.Simulate(deltaTime, ref _steerInput, ref _throttleInput, 
+                    ref _brakeInput, ref _clutchInput, ref _handbrakeInput);
 
-            if (FrontAxle.LeftWheel == null)
-            {
-                enabled = false;
-                throw new System.ArgumentNullException(nameof(FrontAxle.LeftWheel), "Reference is missing");
-            }
+            FrontAxle.ApplySteering(GetSteerAngle() / SteeRatio);
 
-            if (FrontAxle.RightWheel == null)
-            {
-                enabled = false;
-                throw new System.ArgumentNullException(nameof(FrontAxle.RightWheel), "Reference is missing");
-            }
-
-            if (RearAxle.LeftWheel == null)
-            {
-                enabled = false;
-                throw new System.ArgumentNullException(nameof(RearAxle.LeftWheel), "Reference is missing");
-            }
-
-            if (RearAxle.RightWheel == null)
-            {
-                enabled = false;
-                throw new System.ArgumentNullException(nameof(RearAxle.RightWheel), "Reference is missing");
-            }
-
-            Engine.Init(this);
-            Clutch.Init(this);
-            Gearbox.Init(this);
-            FrontAxle.Init(this);
-            RearAxle.Init(this);
-        }
-
-        protected override void OnSimulate(float deltaTime)
-        {
-            if (ECU.IsNotNull)
-                ECU.Value.Simulate(deltaTime);
-
-            var rightVelocity = Vector3.Dot(transform.right, Body.velocity);
-            var forwardVelocity = Vector3.Dot(transform.forward, Body.velocity);
-            var linearVelocity = new Vector2(rightVelocity, forwardVelocity).magnitude;
-
-            //var smoothDeltaTime = Time.smoothDeltaTime;
-            //const float GAUGE_SPEED = 20f;
-
-            //Tachometer = Mathf.Lerp(Tachometer, Mathf.Abs(Engine.GetRPM()), smoothDeltaTime * GAUGE_SPEED);
-        }
-
-        protected override void OnFixedSimulate(float deltaTime)
-        {
-            //if (Fuel.IsNotNull)
-            //    this.CalcFuel(Fuel.Value, Engine.GetCurrentPower());
-
-            FrontAxle.ApplySteering(GetWheelAngle());
-
-            FrontAxle.ApplyBrake(BrakeInput * (float)BrakeBias);
-            RearAxle.ApplyBrake(Mathf.Max(BrakeInput, HandbrakeInput) * (1f - BrakeBias));
+            FrontAxle.ApplyBrake(_brakeInput * BrakeBias);
+            RearAxle.ApplyBrake(Mathf.Max(_brakeInput, _handbrakeInput) * (1f - BrakeBias));
 
             var clutchInputTorque = Clutch.Torque;
             var gearboxOutputTorque = Gearbox.GetOutputTorque(clutchInputTorque);
-            var outputModifier = IsDriveable ? 1f : 0f;
 
             switch (DriveType)
             {
-                case DriveType.AWD:
-
-                    var frontBias = AWDBias;
-                    var rearBias = 1f - AWDBias;
-
-                    FrontAxle.ApplyMotor(FrontAxle.GetOutputTorque(deltaTime, gearboxOutputTorque * frontBias * outputModifier));
-
-                    RearAxle.ApplyMotor(RearAxle.GetOutputTorque(deltaTime, gearboxOutputTorque * rearBias * outputModifier));
-
-                    var awd_axleShaftVelocity = (FrontAxle.GetInputShaftVelocity() + RearAxle.GetInputShaftVelocity()) / 2f;
-
-                    var awd_gearboxShaftVelocity = Gearbox.GetInputShaftVelocity(awd_axleShaftVelocity);
-
-                    Clutch.Simulate(ClutchInput, awd_gearboxShaftVelocity, Engine, Gearbox.GetGearRatio(Gearbox.GearIndex));
-                    break;
-
-                case DriveType.FWD:
-                    FrontAxle.ApplyMotor(FrontAxle.GetOutputTorque(deltaTime, gearboxOutputTorque * outputModifier));
-
-                    var fwd_gearboxShaftVelocity = Gearbox.GetInputShaftVelocity(FrontAxle.GetInputShaftVelocity());
-
-                    Clutch.Simulate(ClutchInput, fwd_gearboxShaftVelocity, Engine, Gearbox.GetGearRatio(Gearbox.GearIndex));
-                    break;
-
-                case DriveType.RWD:
-                    RearAxle.ApplyMotor(RearAxle.GetOutputTorque(deltaTime, gearboxOutputTorque * outputModifier));
-
-                    var rwd_gearboxShaftVelocity = Gearbox.GetInputShaftVelocity(RearAxle.GetInputShaftVelocity());
-
-                    Clutch.Simulate(ClutchInput, rwd_gearboxShaftVelocity, Engine, Gearbox.GetGearRatio(Gearbox.GearIndex));
-                    break;
+                case DriveType.AWD: AWDSimulate(); break;
+                case DriveType.FWD: FWDSimulate(); break;
+                case DriveType.RWD: RWDSimulate(); break;
             }
 
-            var isStalling = !Gearbox.IsNeutral && !Clutch.IsEngaged;
+            Engine.Simulate(deltaTime, Clutch.Torque, _throttleInput);
+            Gearbox.Simulate(deltaTime, Engine, Clutch);
 
-            Engine.LoadVariables(Clutch.Torque, ThrottleInput, isStalling, Clutch.IsEngaged, Gearbox.IsNeutral);
+            // TODO: Backfire and exhaust stuff!
 
-            Engine.Simulate(deltaTime);
-            Clutch.Simulate(deltaTime);
-
-            var gearboxData = new GearboxComponent.GearboxData
+            void FWDSimulate()
             {
-                engine = Engine,
-                clutch = Clutch,
-                finalDriveRatio = GetFinalDriveRatio(),
-            };
+                FrontAxle.ApplyMotor(FrontAxle.GetOutputTorque(deltaTime, gearboxOutputTorque));
+                DriveShaftVelocity = Gearbox.GetInputShaftVelocity(FrontAxle.GetInputShaftVelocity());
 
-            Gearbox.Simulate(deltaTime, gearboxData);
-            FrontAxle.Simulate(deltaTime);
-            RearAxle.Simulate(deltaTime);
-
-            float GetFinalDriveRatio() => DriveType switch
-            {
-                DriveType.AWD => (FrontAxle.FinalDriveRatio + RearAxle.FinalDriveRatio) * 0.5f,
-                DriveType.FWD => FrontAxle.FinalDriveRatio,
-                DriveType.RWD => RearAxle.FinalDriveRatio,
-                _ => 1f,
-            };
-        }
-
-        protected override void OnShutdown() => ECU.Value.Shutdown();
-
-        private void OnCollisionEnter(Collision collision)
-        {
-            var gForce = collision.relativeVelocity.magnitude / (Time.fixedDeltaTime * Mathf.Abs(Physics.gravity.y));
-
-            const float G_FORCE_THRESHOLD = 1f;
-
-            if (Mathf.Abs(gForce) <= G_FORCE_THRESHOLD)
-                return;
-
-            const float AIRBAG_THRESHOLD = 20f;
-
-            //if (Mathf.Abs(gForce) > AIRBAG_THRESHOLD)
-            //    OnAirbagTrigged?.Invoke();
-        }
-
-        #region Data Saving
-
-        public override void LoadData(FileData data)
-        {
-            base.LoadData(data);
-
-            data.ReadValue("Steering", "LockOnStandby", out m_LockOnStandby);
-            data.ReadValue("Powertrain", "Type", out DriveType type);
-
-            DriveType = type;
-
-            if (DriveType == DriveType.AWD)
-            {
-                data.ReadValue("Powertrain", "AWDBias", out float awdBias);
-                AWDBias = awdBias;
+                Clutch.Simulate(_clutchInput, DriveShaftVelocity, Engine, 
+                    Gearbox.GetGearRatio(Gearbox.GearIndex));
             }
 
-            Engine.LoadData(data);
-            Clutch.LoadData(data);
-            Gearbox.LoadData(data);
+            void RWDSimulate()
+            {
+                RearAxle.ApplyMotor(RearAxle.GetOutputTorque(deltaTime, gearboxOutputTorque));
+                DriveShaftVelocity = Gearbox.GetInputShaftVelocity(RearAxle.GetInputShaftVelocity());
 
-            var frontAxleData = new FileData();
-            frontAxleData["Differential"].Merge(data["Front Axle"]);
-            FrontAxle.LoadData(frontAxleData);
+                Clutch.Simulate(_clutchInput, DriveShaftVelocity, Engine, 
+                    Gearbox.GetGearRatio(Gearbox.GearIndex));
+            }
 
-            var rearAxleData = new FileData();
-            rearAxleData["Differential"].Merge(data["Rear Axle"]);
-            RearAxle.LoadData(rearAxleData);
+            void AWDSimulate()
+            {
+                var frontBias = AWDBias;
+                var rearBias = 1f - AWDBias;
+
+                FrontAxle.ApplyMotor(FrontAxle.GetOutputTorque(deltaTime,
+                    gearboxOutputTorque * frontBias));
+
+                RearAxle.ApplyMotor(RearAxle.GetOutputTorque(deltaTime,
+                    gearboxOutputTorque * rearBias));
+
+                var awd_axleShaftVelocity = (FrontAxle.GetInputShaftVelocity() + RearAxle.GetInputShaftVelocity()) / 2f;
+
+                DriveShaftVelocity = Gearbox.GetInputShaftVelocity(awd_axleShaftVelocity);
+
+                Clutch.Simulate(_clutchInput, DriveShaftVelocity, Engine, 
+                    Gearbox.GetGearRatio(Gearbox.GearIndex));
+            }
         }
-
-        public override FileData SaveData()
-        {
-            var data = base.SaveData();
-
-            data.WriteValue("Steering", "LockOnStandby", m_LockOnStandby);
-            data.WriteValue("Powertrain", "Type", DriveType);
-
-            if (DriveType == DriveType.AWD)
-                data.WriteValue("Powertrain", "AWDBias", AWDBias);
-
-            data.Merge(Engine.SaveData());
-            data.Merge(Clutch.SaveData());
-            data.Merge(Gearbox.SaveData());
-
-            var axles = new FileData();
-
-            axles["Front Axle"].Merge(FrontAxle.SaveData()["Differential"]);
-            axles["Rear Axle"].Merge(RearAxle.SaveData()["Differential"]);
-
-            data.Merge(axles);
-
-            return data;
-        } 
-
-        #endregion
     }
 }

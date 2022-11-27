@@ -51,9 +51,21 @@ namespace Drifter.Components
             }
         }
 
-        public float GetOutputTorque(float inputTorque) => inputTorque * Efficiency * GetGearRatio(_gearIndex);
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="inputTorque"></param>
+        /// <returns>In [N/m]</returns>
+        public float GetOutputTorque(float inputTorque) => 
+            inputTorque * Efficiency * GetGearRatio(_gearIndex);
 
-        public float GetInputShaftVelocity(float outputShaftVelocity) => outputShaftVelocity * Efficiency * GetGearRatio(_gearIndex);
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="outputShaftVelocity"></param>
+        /// <returns>In [rad/s]</returns>
+        public float GetInputShaftVelocity(float outputShaftVelocity) => 
+            outputShaftVelocity * Efficiency * GetGearRatio(_gearIndex);
 
         public float GetGearRatio(int index) => index switch
         {
@@ -73,9 +85,57 @@ namespace Drifter.Components
         private BaseVehicle vehicle;
         private Coroutine shiftCoroutine = null;
 
+        public override void OnEnable(BaseVehicle vehicle)
+        {
+            this.vehicle = vehicle;
+        }
+        public override void OnDisable(BaseVehicle vehicle)
+        {
+            this.vehicle = null;
+        }
+
+        public void Simulate(float deltaTime, EngineComponent engine, ClutchComponent clutch)
+        {
+            //if (Type != TransmissionType.Manual &&
+            //    data.clutch.Type != ClutchType.FrictionDisc)
+            //    AutomaticTransmission(data);
+
+            AutomaticTransmission();
+
+            void AutomaticTransmission()
+            {
+                //const float SHIFT_UP_RPM = 7500f; // Scale and depends on DrivingMode. ECO lower RPM.
+                //const float SHIFT_DOWN_RPM = 2000f;
+                //const float SHIFT_REVERSE_RPM = 500f;
+                //const float SHIFT_FIRST_RPM = 3500f;
+                const float SPEED_THRESHOLD = 5f;
+                const double SHIFT_TIME = 0.5d;
+
+                var shiftTime = Time.timeAsDouble - lastGearShiftTime;
+                var ableToShift = shiftTime > SHIFT_TIME;
+
+                var speed = 0f; // vehicle.GetSpeedInKph();
+                var rpm = engine.GetRPM();
+
+                if (ableToShift && rpm > ShiftUpRPM && (speed > SPEED_THRESHOLD || IsNeutral) &&
+                    GearIndex >= 0)
+                    ShiftUp();
+                else if (ableToShift && rpm <= ShiftDownRPM && GearIndex > 1)
+                    ShiftDown();
+
+                //float GetShiftSpeed()
+                //{
+                //    var shiftUpSpeed = ShiftUpRPM.ToRads() / (GetGearRatio(GearIndex) * data.finalDriveRatio); // 14.35
+                //    return shiftUpSpeed * 3.6f;
+                //}
+
+                //float GetTacho() => IsNeutral || data.clutch.IsEngaged ? data.engine.GetRPM() : data.clutch.GetRPM();
+            }
+        }
+
         public void ShiftUp()
         {
-            if (shiftCoroutine != null)
+            if (vehicle == null || shiftCoroutine != null)
                 return;
 
             shiftCoroutine = vehicle.StartCoroutine(ShiftUpAsync());
@@ -83,7 +143,7 @@ namespace Drifter.Components
 
         public void ShiftDown()
         {
-            if (shiftCoroutine != null)
+            if (vehicle == null || shiftCoroutine != null)
                 return;
 
             shiftCoroutine = vehicle.StartCoroutine(ShiftDownAsync());
@@ -143,59 +203,57 @@ namespace Drifter.Components
             lastGearShiftTime = Time.timeAsDouble;
         }
 
-        public override void Init(BaseVehicle vehicle) => this.vehicle = vehicle;
-
-        public struct GearboxData : IVehicleData
-        {
-            public EngineComponent engine;
-            public ClutchComponent clutch;
-            public float finalDriveRatio;
-        } // 80 bytes of waste!!!
+        //public struct GearboxData : IVehicleData
+        //{
+        //    public EngineComponent engine;
+        //    public ClutchComponent clutch;
+        //    public float finalDriveRatio;
+        //} // 80 bytes of waste!!!
 
         private double lastGearShiftTime;
 
-        public override void Simulate(float deltaTime, IVehicleData vehicleData = null)
-        {
-            var data = (GearboxData)vehicleData;
+        //public override void Simulate(float deltaTime, IVehicleData vehicleData = null)
+        //{
+        //    var data = (GearboxData)vehicleData;
 
-            if (Type != TransmissionType.Manual &&
-                data.clutch.Type != ClutchType.FrictionDisc)
-                AutomaticTransmission(data);
+        //    if (Type != TransmissionType.Manual &&
+        //        data.clutch.Type != ClutchType.FrictionDisc)
+        //        AutomaticTransmission(data);
 
-            void AutomaticTransmission(GearboxData data)
-            {
-                //const float SHIFT_UP_RPM = 7500f; // Scale and depends on DrivingMode. ECO lower RPM.
-                //const float SHIFT_DOWN_RPM = 2000f;
-                //const float SHIFT_REVERSE_RPM = 500f;
-                //const float SHIFT_FIRST_RPM = 3500f;
-                const float SPEED_THRESHOLD = 5f;
-                const double SHIFT_TIME = 0.5d;
+        //    void AutomaticTransmission(GearboxData data)
+        //    {
+        //        //const float SHIFT_UP_RPM = 7500f; // Scale and depends on DrivingMode. ECO lower RPM.
+        //        //const float SHIFT_DOWN_RPM = 2000f;
+        //        //const float SHIFT_REVERSE_RPM = 500f;
+        //        //const float SHIFT_FIRST_RPM = 3500f;
+        //        const float SPEED_THRESHOLD = 5f;
+        //        const double SHIFT_TIME = 0.5d;
 
-                var shiftTime = Time.timeAsDouble - lastGearShiftTime;
-                var ableToShift = shiftTime > SHIFT_TIME;
+        //        var shiftTime = Time.timeAsDouble - lastGearShiftTime;
+        //        var ableToShift = shiftTime > SHIFT_TIME;
 
-                var speed = vehicle.GetSpeedInKph();
-                var rpm = data.engine.GetRPM();
+        //        var speed = 0f; // vehicle.GetSpeedInKph();
+        //        var rpm = data.engine.GetRPM();
 
-                if (ableToShift && rpm > ShiftUpRPM && (speed > SPEED_THRESHOLD || IsNeutral) &&
-                    GearIndex >= 0)
-                    ShiftUp();
-                else if (ableToShift && rpm <= ShiftDownRPM && GearIndex > 1)
-                    ShiftDown();
+        //        if (ableToShift && rpm > ShiftUpRPM && (speed > SPEED_THRESHOLD || IsNeutral) &&
+        //            GearIndex >= 0)
+        //            ShiftUp();
+        //        else if (ableToShift && rpm <= ShiftDownRPM && GearIndex > 1)
+        //            ShiftDown();
 
-                //float GetShiftSpeed()
-                //{
-                //    var shiftUpSpeed = ShiftUpRPM.ToRads() / (GetGearRatio(GearIndex) * data.finalDriveRatio); // 14.35
-                //    return shiftUpSpeed * 3.6f;
-                //}
+        //        //float GetShiftSpeed()
+        //        //{
+        //        //    var shiftUpSpeed = ShiftUpRPM.ToRads() / (GetGearRatio(GearIndex) * data.finalDriveRatio); // 14.35
+        //        //    return shiftUpSpeed * 3.6f;
+        //        //}
 
-                //float GetTacho() => IsNeutral || data.clutch.IsEngaged ? data.engine.GetRPM() : data.clutch.GetRPM();
-            }
-        }
+        //        //float GetTacho() => IsNeutral || data.clutch.IsEngaged ? data.engine.GetRPM() : data.clutch.GetRPM();
+        //    }
+        //}
 
         #region Data Saving
 
-        public override void LoadData(FileData data)
+        public override void Load(FileData data)
         {
             data.ReadValue("Gearbox", "Type", out TransmissionType type);
             data.ReadValue("Gearbox", "Efficiency", out float efficiency);
@@ -214,7 +272,7 @@ namespace Drifter.Components
             //ReverseGear = reverseGear;
         }
 
-        public override FileData SaveData()
+        public override FileData Save()
         {
             var data = new FileData();
 
@@ -231,8 +289,6 @@ namespace Drifter.Components
 
             return data;
         }
-
-        public override void Shutdown() => throw new System.NotImplementedException();
 
         #endregion
     }

@@ -89,7 +89,7 @@ namespace Drifter.Samples.GTASystem
             TrySpawnVFX(m_FireVFX, destroyTime: 3f);
             TryPlaySFX(m_ExplodeSFX);
 
-            vehicle.IsDriveable = false;
+            //vehicle.IsDriveable = false;
         }
         #endregion
 

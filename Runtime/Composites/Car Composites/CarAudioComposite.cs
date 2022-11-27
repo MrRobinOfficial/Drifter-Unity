@@ -51,11 +51,11 @@ namespace Drifter.Composites.CarComposites
         {
             carVehicle = GetComponent<CarVehicle>();
 
-            foreach (var wheel in carVehicle.WheelArray)
-            {
-                var handler = wheel.gameObject.AddComponent<WheelSFXHandler>();
-                handler.Init(m_SkidClip, m_WheelMixerGroup);
-            }
+            //foreach (var wheel in carVehicle.WheelArray)
+            //{
+            //    var handler = wheel.gameObject.AddComponent<WheelSFXHandler>();
+            //    handler.Init(m_SkidClip, m_WheelMixerGroup);
+            //}
         }
 
         private void Update()

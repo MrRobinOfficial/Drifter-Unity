@@ -1,5 +1,4 @@
 ﻿using Cinemachine;
-using Drifter.Attributes;
 using Drifter.Data;
 using Drifter.Handlers;
 using Drifter.Vehicles;
@@ -19,7 +18,7 @@ namespace Drifter.Composites.CarComposites
         [SerializeField, Required] CinemachineFreeLook m_HoodCam = default;
 
         [Header("General Settings")]
-        [SerializeField, ExposedData] CameraPreset m_Preset = default;
+        [SerializeField, Expandable] CameraPreset m_Preset = default;
 
         protected override void Awake()
         {
