@@ -1,0 +1,18 @@
+{
+    "name": "uDrifter.Editor",
+    "rootNamespace": "uDrifter.Editor",
+    "references": [
+        "GUID:cb3a70f57842e534483b5d32f6d46945"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": false,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

@@ -1,0 +1,27 @@
+{
+  "name": "com.mrrobin.drifter",
+  "version": "1.0.0",
+  "displayName": "Drifter",
+  "description": "This is an example package",
+  "unity": "2021.3",
+  "unityRelease": "0f1",
+  "documentationUrl": "https://github.com/MrRobinftw/Drifter/wiki/",
+  "changelogUrl": "https://example.com/changelog.html",
+  "licensesUrl": "https://example.com/licensing.html",
+  "dependencies": {
+    "com.unity.nuget.newtonsoft-json": "3.0.2",
+ },
+ "keywords": [
+    "drifter",
+    "car",
+    "physics",
+    "simulator",
+    "vehicle",
+    "drifting"
+  ],
+  "author": {
+    "name": "Robin",
+    "email": "mrrobin123mail@gmail.com",
+    "url": "https://github.com/MrRobinOfficial"
+  }
+}
