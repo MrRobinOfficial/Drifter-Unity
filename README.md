@@ -1,4 +1,4 @@
-# Welcome to the Drifter wiki!
+# Drifter [W.I.P]
 
 For more in-depth guide, [vist github page]("https://github.com/MrRobinftw/Drifter/wiki/")
 
