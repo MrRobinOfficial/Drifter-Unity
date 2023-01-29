@@ -19,7 +19,7 @@ For more in-depth guide, [vist github page]("https://github.com/MrRobinftw/Drift
 
 ## Installation
 
-* [Add package](https://docs.unity3d.com/Manual/upm-ui-giturl.html) from this git URL: ```com.mrrobin.drifter``` or https://github.com/MrRobinOfficial/Unity-Drifter.git
+* [Add package](https://docs.unity3d.com/Manual/upm-ui-giturl.html) from this git URL: ```com.mrrobin.drifter``` or https://github.com/MrRobinOfficial/Drifter-Unity.git
 
 ## Quick guide
 
