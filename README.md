@@ -12,6 +12,7 @@
 This package uses Drifter bindings by [MrRobinOfficial](https://github.com/mrrobinofficial/Unity-Drifter) and the C# wrapper by [CSharp-Drifter-SDK](https://github.com/mrrobinofficial/Unity-Drifter).
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/mrrobinofficial/drifter-unity/blob/HEAD/LICENSE.txt)
+![maintenance-status](https://img.shields.io/badge/maintenance-experimental-blue.svg)
 
 </div>
 
